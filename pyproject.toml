@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cape-newsindex"
+name = "CAPEnewsindex"
 version = "0.7.0"
 description = "Build news-based Economic Policy Uncertainty (EPU) indices from newspaper archives."
 readme = "README.md"
@@ -40,7 +40,7 @@ Issues = "https://github.com/CAPE-ERC/cape-newsindex/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-cape_newsindex = ["data/*.csv", "data/*.json"]
+CAPEnewsindex = ["data/*.csv", "data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

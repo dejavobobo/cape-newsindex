@@ -1,8 +1,8 @@
-"""One self-contained HTML dashboard for an :class:`cape_newsindex.IndexResult`.
+"""One self-contained HTML dashboard for an :class:`CAPEnewsindex.IndexResult`.
 
 Everything is in the single ``.html`` file (charts are inline SVG), so it
 opens in any browser, offline, and can be emailed as one attachment.
-Charts need matplotlib (``pip install cape-newsindex[plot]``); without it the
+Charts need matplotlib (``pip install CAPEnewsindex[plot]``); without it the
 dashboard still has every table.
 """
 
@@ -89,7 +89,7 @@ def _line_chart(series: dict[str, pd.DataFrame], title: str, *, y="EPU", ref=100
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
     except ImportError:
-        return '<p class="note">Install matplotlib to see charts: pip install cape-newsindex[plot]</p>'
+        return '<p class="note">Install matplotlib to see charts: pip install CAPEnewsindex[plot]</p>'
     fig, ax = plt.subplots(figsize=(width, height))
     palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     for i, (name, g) in enumerate(series.items()):
@@ -247,7 +247,7 @@ def build(result, months: int = 12, version: str = "both") -> str:
 <title>{_e(result.measure)} dashboard {_e(s['period'])}</title><style>{_CSS}</style><script>{_JS}</script></head>
 <body>
 <header><h1>{_e(s.get('title', 'Economic Policy Uncertainty'))} dashboard</h1>
-<p>{_e(', '.join(s['countries']))} · {_e(s['period'])} · {_e(s['mode'])} · made {today} with cape_newsindex {__version__}</p></header>
+<p>{_e(', '.join(s['countries']))} · {_e(s['period'])} · {_e(s['mode'])} · made {today} with CAPEnewsindex {__version__}</p></header>
 <main>
 {tabs}
 {sections}

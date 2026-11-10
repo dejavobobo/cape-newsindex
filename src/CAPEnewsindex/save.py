@@ -11,7 +11,7 @@ Every function that needs a library beyond this package's hard dependencies
 gspread for Google Sheets, python-docx for ``.docx`` reports, fpdf2 for
 ``.pdf`` reports -- imports it lazily, inside the function body, and raises
 a clear error naming the pip extra to install if it's missing. ``import
-cape_newsindex`` itself never requires any of them.
+CAPEnewsindex`` itself never requires any of them.
 """
 
 from __future__ import annotations
@@ -77,13 +77,13 @@ def save_excel(
     If ``sheet_by`` is given (a column name, e.g. ``"country"``), writes one
     sheet per distinct value of that column; otherwise everything goes on a
     single sheet named ``"result"``. Requires the ``excel`` extra
-    (``pip install cape-newsindex[excel]``).
+    (``pip install CAPEnewsindex[excel]``).
     """
     try:
         writer = pd.ExcelWriter(path, engine="openpyxl")
     except ImportError as exc:
         raise ImportError(
-            "save_excel() requires openpyxl -- install with: pip install cape-newsindex[excel]"
+            "save_excel() requires openpyxl -- install with: pip install CAPEnewsindex[excel]"
         ) from exc
 
     with writer:
@@ -110,12 +110,12 @@ def save_json(result: pd.DataFrame, path: str | Path, **kwargs) -> None:
 
 def save_parquet(result: pd.DataFrame, path: str | Path, **kwargs) -> None:
     """Save ``result`` as ``.parquet``. Requires the ``parquet`` extra
-    (``pip install cape-newsindex[parquet]``)."""
+    (``pip install CAPEnewsindex[parquet]``)."""
     try:
         result.to_parquet(path, index=False, **kwargs)
     except ImportError as exc:
         raise ImportError(
-            "save_parquet() requires pyarrow -- install with: pip install cape-newsindex[parquet]"
+            "save_parquet() requires pyarrow -- install with: pip install CAPEnewsindex[parquet]"
         ) from exc
 
 
@@ -144,7 +144,7 @@ def save_gsheet(
     pattern as :func:`save_sql`. If omitted, falls back to
     ``gspread.service_account()`` (default credential discovery) as a
     convenience, but passing ``client`` explicitly is recommended. Requires
-    the ``gsheet`` extra (``pip install cape-newsindex[gsheet]``) unless
+    the ``gsheet`` extra (``pip install CAPEnewsindex[gsheet]``) unless
     ``client`` is already provided by the caller.
     """
     if client is None:
@@ -152,7 +152,7 @@ def save_gsheet(
             import gspread
         except ImportError as exc:
             raise ImportError(
-                "save_gsheet() requires gspread -- install with: pip install cape-newsindex[gsheet]"
+                "save_gsheet() requires gspread -- install with: pip install CAPEnewsindex[gsheet]"
             ) from exc
         client = gspread.service_account()
 
@@ -249,7 +249,7 @@ def load(path: str | Path, **kwargs) -> pd.DataFrame:
         if extra:
             raise ImportError(
                 f"load() of {suffix} files requires an extra package -- "
-                f"install with: pip install cape-newsindex[{extra}]"
+                f"install with: pip install CAPEnewsindex[{extra}]"
             ) from exc
         raise
 
@@ -260,11 +260,11 @@ def _docx_report(result: pd.DataFrame, path: str | Path) -> None:
     except ImportError as exc:
         raise ImportError(
             "save_report() with a .docx path requires python-docx -- "
-            "install with: pip install cape-newsindex[docx]"
+            "install with: pip install CAPEnewsindex[docx]"
         ) from exc
 
     document = docx.Document()
-    document.add_heading("cape_newsindex EPU report", level=1)
+    document.add_heading("CAPEnewsindex EPU report", level=1)
     for line in _summarize(result).splitlines():
         document.add_paragraph(line)
 
@@ -289,13 +289,13 @@ def _pdf_report(result: pd.DataFrame, path: str | Path) -> None:
     except ImportError as exc:
         raise ImportError(
             "save_report() with a .pdf path requires fpdf2 -- "
-            "install with: pip install cape-newsindex[pdf]"
+            "install with: pip install CAPEnewsindex[pdf]"
         ) from exc
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "cape_newsindex EPU report", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, "CAPEnewsindex EPU report", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 11)
     for line in _summarize(result).splitlines():
@@ -321,15 +321,15 @@ def _pdf_report(result: pd.DataFrame, path: str | Path) -> None:
 
 
 def save_report(result: pd.DataFrame, path: str | Path, format: str | None = None) -> None:
-    """Render a one-page report to ``path``, in more formats than :func:`cape_newsindex.report.report`.
+    """Render a one-page report to ``path``, in more formats than :func:`CAPEnewsindex.report.report`.
 
     Format is ``format`` if given, else inferred from ``path``'s extension:
     ``.html``/``.md``/``.markdown`` delegate straight to
-    :func:`cape_newsindex.report.report`; ``.docx`` (needs the ``docx`` extra)
+    :func:`CAPEnewsindex.report.report`; ``.docx`` (needs the ``docx`` extra)
     and ``.pdf`` (needs the ``pdf`` extra) build a minimal document here --
-    a title, the :func:`cape_newsindex.report.summarize` text, and the
-    :func:`cape_newsindex.report.describe` table, same minimalism as
-    :func:`cape_newsindex.report.report`. Any other extension raises
+    a title, the :func:`CAPEnewsindex.report.summarize` text, and the
+    :func:`CAPEnewsindex.report.describe` table, same minimalism as
+    :func:`CAPEnewsindex.report.report`. Any other extension raises
     :class:`ValueError`.
     """
     path = Path(path)

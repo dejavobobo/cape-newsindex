@@ -2,7 +2,7 @@
 
 A pure reference table, not consumed by any other function in this
 library. It exists so a user building their own country groupings (for
-:func:`cape_newsindex.aggregate.aggregate_regions` or anything else) has a
+:func:`CAPEnewsindex.aggregate.aggregate_regions` or anything else) has a
 standard, verified list of countries, codes, and regions to start from,
 without compiling one by hand.
 
@@ -22,8 +22,8 @@ are blank for the two ISO entries the UN M49 scheme does not classify
 Names are ISO 3166-1's official short names, which do not always match
 the names used elsewhere in this library (e.g. this table's "Congo,
 Democratic Republic of the" is "Congo DRC" in
-:data:`cape_newsindex.aggregate.AFRICA_REGIONS` and the EPU dictionary) --
-the same kind of mismatch :data:`cape_newsindex.aggregate.DEFAULT_COUNTRY_ALIASES`
+:data:`CAPEnewsindex.aggregate.AFRICA_REGIONS` and the EPU dictionary) --
+the same kind of mismatch :data:`CAPEnewsindex.aggregate.DEFAULT_COUNTRY_ALIASES`
 already bridges for GDP source files.
 """
 
@@ -48,7 +48,7 @@ def countries(path: str | Path | None = None) -> pd.DataFrame:
     """
     if path is not None:
         return pd.read_csv(path, dtype=str, keep_default_na=False)[_COLUMNS]
-    with resources.files("cape_newsindex").joinpath("data", "countries.csv").open(
+    with resources.files("CAPEnewsindex").joinpath("data", "countries.csv").open(
         "r", encoding="utf-8"
     ) as handle:
         return pd.read_csv(handle, dtype=str, keep_default_na=False)[_COLUMNS]

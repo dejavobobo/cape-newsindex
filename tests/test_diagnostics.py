@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import cape_newsindex as ni
-from cape_newsindex import dictionary as _dictionary_module
+import CAPEnewsindex as ni
+from CAPEnewsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
 

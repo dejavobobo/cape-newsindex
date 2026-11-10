@@ -1,6 +1,6 @@
 """Build the EPU index -- edit the settings, then run:  python run_epu.py"""
 
-import cape_newsindex as ni
+import CAPEnewsindex as ni
 
 # ---- Settings ----------------------------------------------------------------
 ARCHIVE = r"G:\path\to\Scrapped_Top_Articles"   # folder with one sub-folder per country

@@ -108,7 +108,7 @@ def _interpolate_annual_to_monthly(
     aliases: dict[str, str] | None,
     output_col: str,
 ) -> pd.DataFrame:
-    """Shared body of :func:`monthly_gdp`/:func:`cape_newsindex.weights.population`.
+    """Shared body of :func:`monthly_gdp`/:func:`CAPEnewsindex.weights.population`.
 
     Each annual value is placed at 1 January of its year and interpolated
     linearly in logarithms through the next year's figure. After a
@@ -219,7 +219,7 @@ def aggregate(
     """Weighted regional (and, by default, Africa-wide) EPU series.
 
     ``country_index`` must have ``country``, ``year_month``, and ``EPU``
-    columns (as produced by :func:`cape_newsindex.index.score`).
+    columns (as produced by :func:`CAPEnewsindex.index.score`).
 
     ``weights`` controls how countries are combined within each group, and
     is either:
@@ -237,7 +237,7 @@ def aggregate(
       they are divided by their own sum -- so e.g. equal weighting is
       ``lambda rows, group: pandas.Series(1.0, index=rows.index)``.
 
-    Pass the :class:`cape_newsindex.index.History` used to score ``country_index``
+    Pass the :class:`CAPEnewsindex.index.History` used to score ``country_index``
     as ``history`` to reuse its window instead of repeating
     ``history_start``/``history_end``.
     """

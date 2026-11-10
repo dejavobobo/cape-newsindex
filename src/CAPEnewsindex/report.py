@@ -1,8 +1,8 @@
 """Turn a result table into something a reader can act on without opening pandas.
 
-Operates on a result table as returned by :func:`cape_newsindex.run_index`,
-:func:`cape_newsindex.index.score`, :func:`cape_newsindex.index.compute_index`, or
-:func:`cape_newsindex.index.score_windows`: ``country``, ``year_month``, ``EPU``,
+Operates on a result table as returned by :func:`CAPEnewsindex.run_index`,
+:func:`CAPEnewsindex.index.score`, :func:`CAPEnewsindex.index.compute_index`, or
+:func:`CAPEnewsindex.index.score_windows`: ``country``, ``year_month``, ``EPU``,
 ``M_t``, ``mu``, ``n_sites`` columns (optionally ``window``).
 
 Plain result DataFrames aren't given a custom ``__repr__`` here (that would
@@ -157,7 +157,7 @@ def rebase(result: pd.DataFrame, new_history_period: tuple[str, str]) -> pd.Data
     """Recompute the 100-mean rescaling of ``EPU`` against a different reference period.
 
     Works directly off the already-scored ``EPU`` column -- no ``M_t``/
-    ``mu``/:class:`cape_newsindex.index.History` refit needed. Per country,
+    ``mu``/:class:`CAPEnewsindex.index.History` refit needed. Per country,
     ``factor = 100 / mean(EPU in new_history_period)``, and every EPU
     value for that country is multiplied by its own factor. Returns a copy
     of ``result`` with ``EPU`` replaced; all other columns are unchanged.
@@ -219,14 +219,14 @@ def report(result: pd.DataFrame, path: str | Path) -> None:
     if suffix == ".html":
         summary_html = "\n".join(f"<p>{line}</p>" for line in summary_text.splitlines())
         content = (
-            "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>cape_newsindex report</title></head>\n"
-            f"<body>\n<h1>cape_newsindex EPU report</h1>\n{summary_html}\n"
+            "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>CAPEnewsindex report</title></head>\n"
+            f"<body>\n<h1>CAPEnewsindex EPU report</h1>\n{summary_html}\n"
             f"<h2>Summary statistics</h2>\n{stats.to_html(index=False)}\n</body></html>\n"
         )
     elif suffix in (".md", ".markdown"):
         summary_md = "\n\n".join(summary_text.splitlines())
         content = (
-            f"# cape_newsindex EPU report\n\n{summary_md}\n\n## Summary statistics\n\n{_markdown_table(stats)}\n"
+            f"# CAPEnewsindex EPU report\n\n{summary_md}\n\n## Summary statistics\n\n{_markdown_table(stats)}\n"
         )
     else:
         raise ValueError(f"unsupported report extension {suffix!r}; use .html, .md, or .markdown")

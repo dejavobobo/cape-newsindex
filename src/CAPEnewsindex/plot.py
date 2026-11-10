@@ -1,17 +1,17 @@
 """One-call charting for a result table, in a choice of backends/styles.
 
-Operates on a result table as returned by :func:`cape_newsindex.run_index`,
-:func:`cape_newsindex.index.score`, :func:`cape_newsindex.index.compute_index`, or
-:func:`cape_newsindex.index.score_windows`: ``country``, ``year_month``, ``EPU``
+Operates on a result table as returned by :func:`CAPEnewsindex.run_index`,
+:func:`CAPEnewsindex.index.score`, :func:`CAPEnewsindex.index.compute_index`, or
+:func:`CAPEnewsindex.index.score_windows`: ``country``, ``year_month``, ``EPU``
 columns (plus ``M_t``, ``mu``, ``n_sites``, optionally ``window``), unless a
 function's docstring says otherwise (:func:`plot_regions`,
 :func:`plot_components`, :func:`plot_history` take a different shape).
 
 ``matplotlib`` is this module's dependency, but only an *optional* one of
-the core package -- ``import cape_newsindex`` never requires it, only actually
+the core package -- ``import CAPEnewsindex`` never requires it, only actually
 calling one of these functions does (install with ``pip install
-cape-newsindex[plot]``). ``backend="plotly"``/``backend="seaborn"`` need their
-own extras (``cape-newsindex[plotly]``/``cape-newsindex[seaborn]``) on top of that,
+CAPEnewsindex[plot]``). ``backend="plotly"``/``backend="seaborn"`` need their
+own extras (``CAPEnewsindex[plotly]``/``CAPEnewsindex[seaborn]``) on top of that,
 only when that backend is actually requested. Every import of these
 libraries happens lazily inside the function that needs it, never at
 import time of this module.
@@ -33,7 +33,7 @@ def _require_matplotlib(fn_name: str):
         import matplotlib.pyplot as plt
     except ImportError as exc:  # pragma: no cover - exercised only without matplotlib installed
         raise ImportError(
-            f"{fn_name}() requires matplotlib -- install with: pip install cape-newsindex[plot]"
+            f"{fn_name}() requires matplotlib -- install with: pip install CAPEnewsindex[plot]"
         ) from exc
     return plt
 
@@ -43,7 +43,7 @@ def _require_plotly(fn_name: str):
         import plotly.graph_objects as go
     except ImportError as exc:  # pragma: no cover - exercised only without plotly installed
         raise ImportError(
-            f"{fn_name}() with backend='plotly' requires plotly -- install with: pip install cape-newsindex[plotly]"
+            f"{fn_name}() with backend='plotly' requires plotly -- install with: pip install CAPEnewsindex[plotly]"
         ) from exc
     return go
 
@@ -53,7 +53,7 @@ def _require_seaborn(fn_name: str):
         import seaborn as sns
     except ImportError as exc:  # pragma: no cover - exercised only without seaborn installed
         raise ImportError(
-            f"{fn_name}() with backend='seaborn' requires seaborn -- install with: pip install cape-newsindex[seaborn]"
+            f"{fn_name}() with backend='seaborn' requires seaborn -- install with: pip install CAPEnewsindex[seaborn]"
         ) from exc
     return sns
 
@@ -130,7 +130,7 @@ def plot_compare(result, countries=None, *, backend: str = "matplotlib"):
 
 def plot_regions(regions_result, *, backend: str = "matplotlib"):
     """One line per ``group`` of ``regions_result`` (output of
-    :func:`cape_newsindex.aggregate.aggregate`), plotting its ``index`` column
+    :func:`CAPEnewsindex.aggregate.aggregate`), plotting its ``index`` column
     over ``year_month``.
 
     Returns a ``matplotlib.figure.Figure``
@@ -322,7 +322,7 @@ def plot_distribution(result, *, kind: str = "hist", backend: str = "matplotlib"
 def plot_components(counts, *, backend: str = "matplotlib"):
     """Stacked area of EPU vs. non-EPU article volume over time.
 
-    ``counts`` is a table like :func:`cape_newsindex.index.count`'s output:
+    ``counts`` is a table like :func:`CAPEnewsindex.index.count`'s output:
     ``country``, ``site``, ``year_month``, ``epu_articles``,
     ``all_articles``. Summed across country/site per ``year_month``.
     Returns a ``matplotlib.figure.Figure``
@@ -361,7 +361,7 @@ def plot_components(counts, *, backend: str = "matplotlib"):
 
 
 def plot_history(history, *, backend: str = "matplotlib"):
-    """Bar chart of a frozen :class:`cape_newsindex.index.History`'s per-site
+    """Bar chart of a frozen :class:`CAPEnewsindex.index.History`'s per-site
     ``sigma`` values, grouped by country -- useful for spotting a history
     that's gone stale (an oddly large or near-zero sigma).
 
@@ -502,7 +502,7 @@ def theme(style: str = "default", *, backend: str = "matplotlib") -> None:
     Mutates GLOBAL matplotlib state (``matplotlib.rcParams``) -- call this
     once near the top of a script, before creating any figures. It affects
     every matplotlib figure created afterward in the process, not just
-    ones made by :mod:`cape_newsindex.plot`. Only ``backend="matplotlib"`` is
+    ones made by :mod:`CAPEnewsindex.plot`. Only ``backend="matplotlib"`` is
     meaningful here (seaborn/plotly have their own separate styling
     mechanisms); ``backend`` is accepted for a consistent call signature
     with the rest of this module but any value other than

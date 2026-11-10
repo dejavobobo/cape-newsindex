@@ -1,4 +1,4 @@
-from cape_newsindex import match
+from CAPEnewsindex import match
 
 
 def test_normalize_folds_case_apostrophes_and_dashes():

@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import cape_newsindex as ni
-from cape_newsindex import dictionary as _dictionary_module
+import CAPEnewsindex as ni
+from CAPEnewsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
 
@@ -309,7 +309,7 @@ def test_run_index_with_history_reads_only_required_months(
         )
 
     # Record every monthly article file opened.
-    import cape_newsindex.fastscan as scan_module
+    import CAPEnewsindex.fastscan as scan_module
 
     opened_months = []
     original_read_rows = scan_module._read_rows
@@ -365,7 +365,7 @@ def test_history_optimization_preserves_epu_values(tmp_path, monkeypatch, reuse_
             ],
         )
 
-    import cape_newsindex.pipeline as pipeline
+    import CAPEnewsindex.pipeline as pipeline
 
     original_read_and_count = pipeline._read_and_count
 
@@ -438,7 +438,7 @@ def test_run_index_with_history_skips_months_between_windows(
             ],
         )
 
-    import cape_newsindex.fastscan as scan_module
+    import CAPEnewsindex.fastscan as scan_module
 
     opened_months = []
     original_read_rows = scan_module._read_rows

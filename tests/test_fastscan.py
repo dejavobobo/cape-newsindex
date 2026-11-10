@@ -11,9 +11,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import cape_newsindex as ni
-from cape_newsindex import dictionary, fastscan, index
-from cape_newsindex.match import (
+import CAPEnewsindex as ni
+from CAPEnewsindex import dictionary, fastscan, index
+from CAPEnewsindex.match import (
     ComponentMatcher,
     EPUMatcher,
     TokenComponentMatcher,

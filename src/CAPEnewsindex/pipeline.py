@@ -1,13 +1,13 @@
 """One-call orchestration of the EPU pipeline for non-technical users.
 
 ``run_index`` and ``run_index_with_history`` wrap the building blocks in
-:mod:`cape_newsindex.dictionary` and :mod:`cape_newsindex.index` into a single call:
+:mod:`CAPEnewsindex.dictionary` and :mod:`CAPEnewsindex.index` into a single call:
 load the dictionary, read the article archive straight into EPU counts
-(via :func:`cape_newsindex.index.count_archive`: files are read in parallel across
+(via :func:`CAPEnewsindex.index.count_archive`: files are read in parallel across
 CPU cores and only compact per-article results are kept, never the whole
 scope's text), and compute the index. Anyone who needs read/dedupe/count as separate,
-in-memory steps should call :func:`cape_newsindex.read_articles`,
-:func:`cape_newsindex.dedup.dedupe`, and :func:`cape_newsindex.index.count` directly
+in-memory steps should call :func:`CAPEnewsindex.read_articles`,
+:func:`CAPEnewsindex.dedup.dedupe`, and :func:`CAPEnewsindex.index.count` directly
 instead -- these two exist only to remove the boilerplate around the
 common case.
 """
@@ -84,25 +84,25 @@ def run_index(
 ) -> pd.DataFrame:
     """Read an article archive and compute a single-window EPU index in one call.
 
-    ``root`` is the article archive directory (see :func:`cape_newsindex.read_articles`);
+    ``root`` is the article archive directory (see :func:`CAPEnewsindex.read_articles`);
     ``dictionary_path`` the EPTU-schema keyword dictionary to classify against
     (``None`` uses the production dictionary bundled with the package).
     ``start``/``end`` are the inclusive ``"YYYY-MM"`` window: ``sigma``/``mu``
     are fit from it and used to score that same window -- this is the
-    no-history variant (see :func:`cape_newsindex.index.compute_index`). Only
+    no-history variant (see :func:`CAPEnewsindex.index.compute_index`). Only
     this window's month folders are ever read -- no earlier archive
     history is streamed, scanned, or shown in progress output.
 
     ``countries`` restricts which country folders under ``root`` are read
     (a list, or ``"all"``/omitted for every folder -- see
-    :func:`cape_newsindex.read_articles`). Progress is printed to stderr unless
+    :func:`CAPEnewsindex.read_articles`). Progress is printed to stderr unless
     ``verbose=False``.
 
     ``workers`` is the number of CPU cores to read with (default: all of
     them; small jobs run in a single process). ``cache=True`` keeps each
     article file's results in a local SQLite cache (or pass a file path), so
     later runs over the same months only read new or changed files. See
-    :func:`cape_newsindex.index.count_archive`.
+    :func:`CAPEnewsindex.index.count_archive`.
     """
     counts = _read_and_count(
         root, dictionary_path, countries, verbose=verbose, start=start, end=end,
@@ -111,7 +111,7 @@ def run_index(
     _log(verbose, f"Computing index for {start}..{end} ...")
     result = _index.compute_index(counts, start, end)
     _log(verbose, f"Done: {len(result):,} country-month rows.")
-    result.attrs["cape_newsindex_config"] = {
+    result.attrs["CAPEnewsindex_config"] = {
         "fn": "run_index",
         "root": root,
         "dictionary_path": dictionary_path,
@@ -141,11 +141,11 @@ def run_index_with_history(
     """Read an article archive and score it against a frozen history in one call.
 
     ``root`` and ``dictionary_path`` are as in :func:`run_index`. Either pass
-    an already-fitted ``history`` (e.g. from :meth:`cape_newsindex.index.History.load`)
+    an already-fitted ``history`` (e.g. from :meth:`CAPEnewsindex.index.History.load`)
     to reuse it, or pass ``history_start``/``history_end`` to fit a new one
     from this archive -- exactly one of the two must be given. ``windows`` is
     a list of inclusive ``(start, end)`` pairs scored against that history
-    (see :func:`cape_newsindex.index.score_windows`); this is the with-history
+    (see :func:`CAPEnewsindex.index.score_windows`); this is the with-history
     variant.
 
     ``countries``, ``verbose``, ``workers`` and ``cache`` are as in
@@ -153,7 +153,7 @@ def run_index_with_history(
     re-checks the history window only reads the new month's files.
 
     Returns ``(result, history)`` so a freshly fit history can be saved
-    with :meth:`cape_newsindex.index.History.save` for reuse in later runs.
+    with :meth:`CAPEnewsindex.index.History.save` for reuse in later runs.
     """
     if history is None and (history_start is None or history_end is None):
         raise ValueError(
@@ -203,7 +203,7 @@ def run_index_with_history(
         config["history_end"] = history_end
     else:
         config["history"] = history
-    result.attrs["cape_newsindex_config"] = config
+    result.attrs["CAPEnewsindex_config"] = config
 
     return result, history
 
@@ -288,7 +288,7 @@ def index_region(
     """Index a whole predefined region, without listing its member countries by hand.
 
     ``region`` is either a key into ``groups`` (default
-    :data:`cape_newsindex.aggregate.AFRICA_REGIONS`, e.g. ``"West"``) or an
+    :data:`CAPEnewsindex.aggregate.AFRICA_REGIONS`, e.g. ``"West"``) or an
     explicit list of country names.
 
     Unlike ``countries=[...]`` on ``run_index`` itself (which errors on any
@@ -355,7 +355,7 @@ def rerun(previous_result_or_config, *, verbose: bool | None = None):
     ``run_index``, ``run_index_with_history``, and every quick-builder
     above (``quick_index``, ``index_all``, ``index_countries``,
     ``index_region``, ``index_since``) attach a config dict to their result
-    via ``result.attrs["cape_newsindex_config"]`` (``pandas.DataFrame.attrs``, an
+    via ``result.attrs["CAPEnewsindex_config"]`` (``pandas.DataFrame.attrs``, an
     in-memory dict pandas carries on the object) describing how to
     reproduce that specific call. Pass that result straight back in to
     re-run it -- useful for a monthly refresh of the same request.
@@ -375,12 +375,12 @@ def rerun(previous_result_or_config, *, verbose: bool | None = None):
     if isinstance(previous_result_or_config, dict):
         config = previous_result_or_config
     else:
-        config = getattr(previous_result_or_config, "attrs", {}).get("cape_newsindex_config")
+        config = getattr(previous_result_or_config, "attrs", {}).get("CAPEnewsindex_config")
 
     if not config or "fn" not in config:
         raise ValueError(
             "rerun() needs a config: pass the DataFrame freshly returned by run_index()/"
-            "run_index_with_history()/a quick-builder (its .attrs['cape_newsindex_config'] "
+            "run_index_with_history()/a quick-builder (its .attrs['CAPEnewsindex_config'] "
             "carries it), or an explicit config dict with the same shape. A DataFrame "
             "reloaded from CSV or similar has no usable config -- attrs don't survive "
             "a round-trip to disk."
