@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from newsindex import read_articles
-from newsindex.articles import iter_country_month_batches
+from CAPEnewsindex import read_articles
+from CAPEnewsindex.articles import iter_country_month_batches
 
 
 def _write_articles(path: Path, rows: list[str]) -> None:

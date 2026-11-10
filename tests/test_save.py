@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-import newsindex as ni
+import CAPEnewsindex as ni
 
 RESULT = pd.DataFrame(
     {

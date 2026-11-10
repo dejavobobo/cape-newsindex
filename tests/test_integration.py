@@ -4,8 +4,8 @@ synthetic archive and the real production keyword dictionary."""
 import gzip
 from pathlib import Path
 
-import newsindex as ni
-from newsindex import dictionary as _dictionary_module
+import CAPEnewsindex as ni
+from CAPEnewsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
 DATA_GDP = Path(__file__).resolve().parent / "data" / "gdp_ppp_2015_2025.csv"

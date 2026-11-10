@@ -1,8 +1,8 @@
-"""The simple way to use newsindex: one call, readable output, everything checked for you.
+"""The simple way to use CAPEnewsindex: one call, readable output, everything checked for you.
 
 .. code-block:: python
 
-    import newsindex as ni
+    import CAPEnewsindex as ni
 
     result = ni.build_index(
         archive=r"C:\\path\\to\\Scrapped_Top_Articles",
@@ -390,7 +390,7 @@ class IndexResult:
                 plt.close(self.plot(version, out / f"{pre}_chart.png"))
                 written.append(f"{pre}_chart.png")
             except ImportError:
-                print("The chart needs matplotlib (pip install newsindex[plot]).")
+                print("The chart needs matplotlib (pip install CAPEnewsindex[plot]).")
         if "history" in choice and self.history is not None:
             self.history.save(out / "history.json")
             written.append("history.json")
@@ -554,7 +554,7 @@ def build_index(
 
     mode = "no history" if history is None else (
         f"history {fixed.start}..{fixed.end} (saved)" if fixed is not None else f"history {windows[1][0]}..{windows[1][1]}")
-    _say(verbose, f"newsindex {__version__} | {measure} | {len(selected)} countr{'y' if len(selected) == 1 else 'ies'} | "
+    _say(verbose, f"CAPEnewsindex {__version__} | {measure} | {len(selected)} countr{'y' if len(selected) == 1 else 'ies'} | "
                   f"{start}..{end} | {mode}")
     source = f" from {Path(kw.source).name}" if kw.source else ""
     _say(verbose, f"Keywords{source} ({' / '.join(required)}):")

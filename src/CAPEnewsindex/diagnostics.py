@@ -2,7 +2,7 @@
 
 These operate on the archive/dictionary directly -- not on a result table --
 so they're cheap to run before committing to a full
-:func:`newsindex.run_index`/:func:`newsindex.run_index_with_history` call.
+:func:`CAPEnewsindex.run_index`/:func:`CAPEnewsindex.run_index_with_history` call.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def coverage(root: str | Path, *, countries: list[str] | str | None = None) -> p
 
     One row per (country, year-month) that has at least one file, with
     ``n_files`` and ``n_articles`` (row count across those files). Reads
-    every file's contents (via :func:`newsindex.articles.iter_country_month_batches`)
+    every file's contents (via :func:`CAPEnewsindex.articles.iter_country_month_batches`)
     to get an accurate article count, so this isn't free on a very large
     archive, but it never holds more than one country-month in memory at a
     time -- useful to run before a big call to catch gaps in advance.
@@ -119,12 +119,12 @@ def dictionary_coverage(
     With ``countries=None``/``"all"`` (the default): one row per country in
     the union of every archive folder under ``root`` and every one of
     ``dictionary``'s countries. A country with ``in_archive=True,
-    in_dictionary=False`` would fail at :func:`newsindex.index.count` with
+    in_dictionary=False`` would fail at :func:`CAPEnewsindex.index.count` with
     a ``KeyError`` -- catch it here first.
 
     With an explicit ``countries`` list: the comparison is scoped to just
     those countries (every one of which is guaranteed ``in_archive=True``,
-    since :func:`newsindex.articles.read_articles`'s country-resolution
+    since :func:`CAPEnewsindex.articles.read_articles`'s country-resolution
     raises on a name with no matching folder) -- a country outside the list
     isn't reported as "missing", since the caller deliberately scoped down.
     """

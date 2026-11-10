@@ -1,8 +1,8 @@
-"""Fast, parallel archive scanning: the engine behind :func:`newsindex.index.count_archive`.
+"""Fast, parallel archive scanning: the engine behind :func:`CAPEnewsindex.index.count_archive`.
 
 Gives exactly the same counts as the pandas path
 (``count(dedupe(batch))`` for every country-month batch from
-:func:`newsindex.articles.iter_country_month_batches`), but much faster:
+:func:`CAPEnewsindex.articles.iter_country_month_batches`), but much faster:
 
 * **Discovery** lists the archive with ``os.scandir`` in parallel threads
   (a large gain on network / Google Drive folders, where every listing waits
@@ -12,11 +12,11 @@ Gives exactly the same counts as the pandas path
   where starting processes would cost more than it saves.
 * **No pandas in the hot loop.** A worker reads the file with the standard
   ``csv`` module, classifies every article with
-  :class:`newsindex.match.IndexMatcher`, and sends back only compact arrays:
+  :class:`CAPEnewsindex.match.IndexMatcher`, and sends back only compact arrays:
   one EPU flag and one 64-bit deduplication-key hash per article. Article
   text never leaves the worker.
 * **Deduplication** then runs in the parent on those hashes, batch by batch,
-  with the same keep-first order as :func:`newsindex.dedup.dedupe`.
+  with the same keep-first order as :func:`CAPEnewsindex.dedup.dedupe`.
 * **Optional cache** (``cache=True`` or a path): per-file results are stored
   in SQLite keyed by file path, size, modification time, and a fingerprint
   of the country's keywords and this engine's settings, so a re-run only
@@ -120,7 +120,7 @@ def discover(
     """Every article file under ``root/<country>/<newspaper>/<year-month>/``.
 
     Same files and month filtering as
-    :func:`newsindex.articles.iter_country_month_batches`. Returns
+    :func:`CAPEnewsindex.articles.iter_country_month_batches`. Returns
     ``(country, folder_month, path, size, mtime_ns)`` tuples, ordered by
     country (in ``countries`` order), month, then path.
     """
@@ -322,12 +322,12 @@ def scan_file(task: tuple[str, str]) -> tuple:
 # Cache
 # ---------------------------------------------------------------------------
 def default_cache_path() -> Path:
-    base = os.environ.get("NEWSINDEX_CACHE_DIR") or (
+    base = os.environ.get("CAPENEWSINDEX_CACHE_DIR") or (
         os.environ.get("LOCALAPPDATA") if _WINDOWS else os.environ.get("XDG_CACHE_HOME")
     )
     root = Path(base) if base else Path.home() / ".cache"
-    if not os.environ.get("NEWSINDEX_CACHE_DIR"):
-        root = root / "newsindex"
+    if not os.environ.get("CAPENEWSINDEX_CACHE_DIR"):
+        root = root / "CAPEnewsindex"
     return root / "scan_cache.sqlite"
 
 
@@ -354,7 +354,7 @@ class _Cache:
                 "result BLOB, PRIMARY KEY(path, fp))"
             )
         except (OSError, sqlite3.Error) as exc:
-            print(f"newsindex: scan cache unavailable ({exc}); reading every file.", file=sys.stderr)
+            print(f"CAPEnewsindex: scan cache unavailable ({exc}); reading every file.", file=sys.stderr)
             self.db = None
 
     def get(self, files, fps) -> dict[str, tuple]:
@@ -386,7 +386,7 @@ class _Cache:
             )
             self.db.commit()
         except sqlite3.Error as exc:
-            print(f"newsindex: scan cache write skipped ({exc}).", file=sys.stderr)
+            print(f"CAPEnewsindex: scan cache write skipped ({exc}).", file=sys.stderr)
 
     def close(self) -> None:
         if self.db is not None:
@@ -478,7 +478,7 @@ def count_archive_fast(
     file_progress: Callable[[dict], None] | None = None,
     groups: tuple[str, ...] = EPU_GROUPS,
 ):
-    """See :func:`newsindex.index.count_archive` (this is its fast engine).
+    """See :func:`CAPEnewsindex.index.count_archive` (this is its fast engine).
 
     ``skipped``: if a list is given, a file that cannot be read is skipped
     (counted as empty) and recorded there as a dict with ``country``,
@@ -645,7 +645,7 @@ def _workers_skip_main_module():
     With the "spawn" start method (the only one on Windows), every worker
     normally re-imports the ``__main__`` script, so a script calling
     ``run_index`` at top level without an ``if __name__ == "__main__":``
-    guard would crash. The workers only need :mod:`newsindex.fastscan`, so
+    guard would crash. The workers only need :mod:`CAPEnewsindex.fastscan`, so
     the main module's file/spec are hidden while the workers start.
     """
     main = sys.modules.get("__main__")
@@ -690,6 +690,6 @@ def _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle) -> None
                 handle(exc if exc is not None else fut.result(), futures[fut])
     except BrokenProcessPool as exc:
         raise RuntimeError(
-            "newsindex: the parallel worker processes stopped unexpectedly (often: out of memory). "
+            "CAPEnewsindex: the parallel worker processes stopped unexpectedly (often: out of memory). "
             "Pass workers=1 to scan in a single process, or fewer workers."
         ) from exc

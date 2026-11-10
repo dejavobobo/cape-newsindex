@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-import newsindex as ni
+import CAPEnewsindex as ni
 
 
 @pytest.fixture(autouse=True)

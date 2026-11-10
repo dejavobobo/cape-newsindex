@@ -52,7 +52,7 @@ def count(
     missing country silently produces an undercount rather than a visible
     failure.
 
-    Classification uses :class:`newsindex.match.IndexMatcher`: plain
+    Classification uses :class:`CAPEnewsindex.match.IndexMatcher`: plain
     substring checks first, the precise word-boundary pattern only where
     every piece of a term is present, and the next component only if the
     previous one matched (EPU requires all three).
@@ -117,10 +117,10 @@ def count_archive(
     Equivalent to ``count(dedupe(read_articles(root, countries=countries)),
     dictionary)`` with the default ``dedupe=True``, computed one (country,
     year-month folder) batch at a time -- see
-    :func:`newsindex.articles.iter_country_month_batches` -- so article
+    :func:`CAPEnewsindex.articles.iter_country_month_batches` -- so article
     text is never held for more than one file (fast engine) or one batch
-    (pandas engine). This is what :func:`newsindex.run_index` and
-    :func:`newsindex.run_index_with_history` use internally.
+    (pandas engine). This is what :func:`CAPEnewsindex.run_index` and
+    :func:`CAPEnewsindex.run_index_with_history` use internally.
 
     Deduplication happens within each (country, year-month folder) batch,
     matching the archive's own month-folder organization -- equivalent to
@@ -135,12 +135,12 @@ def count_archive(
     archive, so it's visible as working rather than looking stalled.
 
     ``start``/``end``, if given, restrict which year-month folders are read
-    at all (see :func:`newsindex.articles.iter_country_month_batches`) --
+    at all (see :func:`CAPEnewsindex.articles.iter_country_month_batches`) --
     pass the window you actually need (e.g. the same ``start``/``end`` as
-    :func:`newsindex.run_index`) so progress and the resulting counts never
+    :func:`CAPEnewsindex.run_index`) so progress and the resulting counts never
     cover months outside it.
 
-    ``engine="fast"`` (the default) runs :mod:`newsindex.fastscan`: files are
+    ``engine="fast"`` (the default) runs :mod:`CAPEnewsindex.fastscan`: files are
     read in parallel across CPU cores (``workers``; default all cores, and
     small jobs run in-process), without pandas, and only compact
     per-article results are kept -- same counts, many times faster.

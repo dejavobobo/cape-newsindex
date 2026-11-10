@@ -1,6 +1,6 @@
 import pandas as pd
 
-import newsindex as ni
+import CAPEnewsindex as ni
 
 
 def test_countries_covers_the_full_iso_3166_1_list():

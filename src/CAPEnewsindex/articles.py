@@ -10,8 +10,8 @@ table, matching the documented example usage.
 which is simple but memory-heavy for a large archive (full article text for
 every country/newspaper/month at once). :func:`iter_country_month_batches`
 is the memory-safe alternative, yielding one small batch at a time; it's
-what :func:`newsindex.index.count_archive` (and therefore
-:func:`newsindex.run_index`/:func:`newsindex.run_index_with_history`) use
+what :func:`CAPEnewsindex.index.count_archive` (and therefore
+:func:`CAPEnewsindex.run_index`/:func:`CAPEnewsindex.run_index_with_history`) use
 for real production-scale runs.
 """
 
@@ -82,19 +82,19 @@ def read_articles(
     ``None`` or ``"all"`` (the default) reads every folder under ``root``;
     a list reads only the named folders (matched case-insensitively
     against the folder names actually present, since archive folder names
-    don't always match a dictionary's or :func:`newsindex.countries`'
+    don't always match a dictionary's or :func:`CAPEnewsindex.countries`'
     casing). An unmatched name raises :class:`ValueError` listing the
     folders that were found, to catch typos early.
 
     Article titles and text are HTML-unescaped (the scraper stores raw HTML
-    entities such as ``&#8217;``) before they reach :mod:`newsindex.match`.
+    entities such as ``&#8217;``) before they reach :mod:`CAPEnewsindex.match`.
     ``country``/``site``/``year_month`` are returned as categorical columns
     (each distinct value stored once, not once per row) to keep the
     combined table's memory footprint down.
 
     This reads the whole requested scope into memory at once. For a large
     archive, prefer :func:`iter_country_month_batches` (or
-    :func:`newsindex.index.count_archive`, which uses it), which never
+    :func:`CAPEnewsindex.index.count_archive`, which uses it), which never
     holds more than one country-month of articles at a time.
     """
     root = Path(root)
