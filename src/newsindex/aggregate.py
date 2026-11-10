@@ -1,0 +1,318 @@
+"""Country z-scores, weighting, and regional / Africa aggregation.
+
+Implements the four computation steps from the CAPE Africa EPU methodology:
+standardise each country's index against its own history, weight by
+within-group share (GDP-PPP by default, or any table or custom weighting
+function -- see :func:`aggregate`), take the weighted average of country
+z-scores, and rescale the result to a history mean of 100 and standard
+deviation of 10. The Africa aggregate applies the same four steps across all
+countries directly; it is not an average of the regional series.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+#: The five CAPE African regions, as published in the Africa EPU Index
+#: methodology (Table 8). Country names match the keys used in the
+#: production ``eptu_country_keywords.json`` dictionary.
+AFRICA_REGIONS: dict[str, list[str]] = {
+    "Central": [
+        "Cameroon",
+        "Central African Republic",
+        "Chad",
+        "Congo",
+        "Congo DRC",
+        "Equatorial Guinea",
+        "Gabon",
+    ],
+    "East": [
+        "Burundi",
+        "Comoros",
+        "Djibouti",
+        "Eritrea",
+        "Ethiopia",
+        "Kenya",
+        "Rwanda",
+        "Seychelles",
+        "Somalia",
+        "South Sudan",
+        "Sudan",
+        "Tanzania",
+        "Uganda",
+    ],
+    "North": ["Algeria", "Egypt", "Libya", "Mauritania", "Morocco", "Tunisia"],
+    "Southern": [
+        "Angola",
+        "Botswana",
+        "Eswatini",
+        "Lesotho",
+        "Madagascar",
+        "Malawi",
+        "Mauritius",
+        "Mozambique",
+        "Namibia",
+        "Sao Tome and Principe",
+        "South Africa",
+        "Zambia",
+        "Zimbabwe",
+    ],
+    "West": [
+        "Benin",
+        "Burkina-Faso",
+        "Cape Verde",
+        "Gambia",
+        "Ghana",
+        "Guinea",
+        "Guinea-Bissau",
+        "Ivory Coast",
+        "Liberia",
+        "Mali",
+        "Niger",
+        "Nigeria",
+        "Senegal",
+        "Sierra Leone",
+        "Togo",
+    ],
+}
+
+#: Country-name aliases between common GDP source spellings and the names
+#: used by :data:`AFRICA_REGIONS` and the EPU keyword dictionary.
+DEFAULT_COUNTRY_ALIASES: dict[str, str] = {
+    "Cabo Verde": "Cape Verde",
+    "Burkina Faso": "Burkina-Faso",
+    "Congo, The Democratic Republic of the": "Congo DRC",
+    "Democratic Republic of the Congo": "Congo DRC",
+    "Congo, Dem. Rep.": "Congo DRC",
+    "Congo, Rep.": "Congo",
+    "Cote d'Ivoire": "Ivory Coast",
+    "Côte d'Ivoire": "Ivory Coast",
+    "Eswatini (Swaziland)": "Eswatini",
+    "Sao Tome and Principe": "Sao Tome and Principe",
+    "The Gambia": "Gambia",
+}
+
+
+def _interpolate_annual_to_monthly(
+    raw: pd.DataFrame,
+    *,
+    country_col: str,
+    year_col: str,
+    value_col: str,
+    scale: float,
+    end: str | None,
+    aliases: dict[str, str] | None,
+    output_col: str,
+) -> pd.DataFrame:
+    """Shared body of :func:`monthly_gdp`/:func:`newsindex.weights.population`.
+
+    Each annual value is placed at 1 January of its year and interpolated
+    linearly in logarithms through the next year's figure. After a
+    country's last annual figure, the value is held flat (carried forward),
+    optionally through ``end`` (a ``"YYYY-MM"`` string). ``scale``
+    multiplies every value after it is read. Output column is named
+    ``output_col`` rather than a fixed ``"gdp"``, so the same logic serves
+    any annual-by-country metric.
+    """
+    aliases = DEFAULT_COUNTRY_ALIASES if aliases is None else aliases
+    raw = raw.copy() if isinstance(raw, pd.DataFrame) else pd.read_csv(raw)
+    raw[country_col] = raw[country_col].map(lambda c: aliases.get(c, c))
+
+    rows: list[dict] = []
+    for country, group in raw.groupby(country_col):
+        pairs = sorted(
+            (int(year), float(value) * scale)
+            for year, value in zip(group[year_col], group[value_col])
+        )
+        for i, (year, value) in enumerate(pairs):
+            if i + 1 < len(pairs):
+                next_year, next_value = pairs[i + 1]
+                if next_year == year:
+                    continue
+                for m in range(12):
+                    frac = m / 12.0
+                    if value > 0 and next_value > 0:
+                        interpolated = float(
+                            np.exp(np.log(value) + frac * (np.log(next_value) - np.log(value)))
+                        )
+                    else:
+                        interpolated = value
+                    rows.append(
+                        {"country": country, "year_month": f"{year}-{m + 1:02d}", output_col: interpolated}
+                    )
+            else:
+                for m in range(12):
+                    rows.append(
+                        {"country": country, "year_month": f"{year}-{m + 1:02d}", output_col: value}
+                    )
+                if end is not None:
+                    carry_year = year + 1
+                    while f"{carry_year}-01" <= end:
+                        for m in range(12):
+                            year_month = f"{carry_year}-{m + 1:02d}"
+                            if year_month > end:
+                                break
+                            rows.append({"country": country, "year_month": year_month, output_col: value})
+                        carry_year += 1
+
+    result = pd.DataFrame(rows, columns=["country", "year_month", output_col])
+    return result.sort_values(["country", "year_month"]).reset_index(drop=True)
+
+
+def monthly_gdp(
+    source: str | Path | pd.DataFrame,
+    *,
+    country_col: str = "Country",
+    year_col: str = "Year",
+    value_col: str = "GDP_Billions_USD",
+    scale: float = 1.0,
+    end: str | None = None,
+    aliases: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """Interpolate annual GDP-PPP (or any other annual-by-country metric) to
+    monthly values.
+
+    ``source`` is either a path to a CSV file or an already-loaded
+    DataFrame, with ``country_col``, ``year_col``, and ``value_col``
+    columns. GDP data is not bundled: you always supply your own.
+
+    Each annual value is placed at 1 January of its year and interpolated
+    linearly in logarithms through the next year's figure. After a
+    country's last annual figure, the value is held flat (carried forward),
+    optionally through ``end`` (a ``"YYYY-MM"`` string).
+
+    ``scale`` multiplies every value after it is read, e.g. ``scale=1000``
+    to convert a billions-denominated source file to millions.
+    """
+    return _interpolate_annual_to_monthly(
+        source,
+        country_col=country_col,
+        year_col=year_col,
+        value_col=value_col,
+        scale=scale,
+        end=end,
+        aliases=aliases,
+        output_col="gdp",
+    )
+
+
+def _population_stats(series: pd.Series) -> tuple[float, float]:
+    values = series.to_numpy(dtype=float)
+    return float(np.mean(values)), float(np.std(values, ddof=0))
+
+
+def aggregate(
+    country_index: pd.DataFrame,
+    weights: pd.DataFrame | Callable[[pd.DataFrame, str], pd.Series],
+    groups: dict[str, list[str]] = AFRICA_REGIONS,
+    *,
+    weight_col: str = "gdp",
+    history=None,
+    history_start: str = "2015-01",
+    history_end: str = "2025-12",
+    include_africa: bool = True,
+) -> pd.DataFrame:
+    """Weighted regional (and, by default, Africa-wide) EPU series.
+
+    ``country_index`` must have ``country``, ``year_month``, and ``EPU``
+    columns (as produced by :func:`newsindex.index.score`).
+
+    ``weights`` controls how countries are combined within each group, and
+    is either:
+
+    - A DataFrame with ``country``, ``year_month``, and a weight-value
+      column (``weight_col``, default ``"gdp"`` -- the column name
+      produced by :func:`monthly_gdp`). Only countries present in this
+      table are included. Within each group and month, countries are
+      weighted by their share of the group's total.
+    - A callable ``weights(month_rows, group_name) -> pandas.Series``,
+      called once per group per month with that month's rows for the
+      group (columns include ``country`` and ``z``) and the group's name,
+      returning a non-negative weight per row (aligned to
+      ``month_rows.index``). Weights don't need to be pre-normalised --
+      they are divided by their own sum -- so e.g. equal weighting is
+      ``lambda rows, group: pandas.Series(1.0, index=rows.index)``.
+
+    Pass the :class:`newsindex.index.History` used to score ``country_index``
+    as ``history`` to reuse its window instead of repeating
+    ``history_start``/``history_end``.
+    """
+    if history is not None:
+        history_start, history_end = history.start, history.end
+    if callable(weights):
+        merged = country_index.copy()
+    else:
+        merged = country_index.merge(weights, on=["country", "year_month"], how="inner")
+
+    history_window = merged[
+        (merged["year_month"] >= history_start) & (merged["year_month"] <= history_end)
+    ]
+    country_stats = {
+        country: _population_stats(rows["EPU"])
+        for country, rows in history_window.groupby("country")
+        if len(rows) >= 2
+    }
+
+    merged = merged[merged["country"].isin(country_stats)].copy()
+    merged["m_c"] = merged["country"].map(lambda c: country_stats[c][0])
+    merged["s_c"] = merged["country"].map(lambda c: country_stats[c][1])
+    merged = merged[merged["s_c"] > 0]
+    merged["z"] = (merged["EPU"] - merged["m_c"]) / merged["s_c"]
+
+    all_groups = dict(groups)
+    if include_africa:
+        africa_members = sorted({country for members in groups.values() for country in members})
+        all_groups = {**all_groups, "Africa": africa_members}
+
+    group_rows: list[dict] = []
+    for group_name, members in all_groups.items():
+        group_data = merged[merged["country"].isin(members)]
+        for year_month, month_rows in group_data.groupby("year_month"):
+            raw_weight = weights(month_rows, group_name) if callable(weights) else month_rows[weight_col]
+            total_weight = raw_weight.sum()
+            if total_weight <= 0:
+                continue
+            weight = raw_weight / total_weight
+            z_weighted = float((weight * month_rows["z"]).sum())
+            group_rows.append(
+                {
+                    "group": group_name,
+                    "year_month": year_month,
+                    "Z": z_weighted,
+                    "n_countries": int(month_rows["country"].nunique()),
+                    "weight_covered": float(total_weight),
+                }
+            )
+
+    regional = pd.DataFrame(group_rows, columns=["group", "year_month", "Z", "n_countries", "weight_covered"])
+    if regional.empty:
+        return regional.rename(columns={"Z": "z"}).assign(index=pd.Series(dtype=float))
+
+    output_rows: list[dict] = []
+    for group_name, rows in regional.groupby("group"):
+        window = rows[(rows["year_month"] >= history_start) & (rows["year_month"] <= history_end)]
+        if len(window) < 2:
+            continue
+        m_r, s_r = _population_stats(window["Z"])
+        if s_r <= 0:
+            continue
+        for _, row in rows.iterrows():
+            output_rows.append(
+                {
+                    "group": group_name,
+                    "year_month": row["year_month"],
+                    "z": row["Z"],
+                    "index": 100.0 + 10.0 * (row["Z"] - m_r) / s_r,
+                    "n_countries": row["n_countries"],
+                    "weight_covered": row["weight_covered"],
+                }
+            )
+
+    result = pd.DataFrame(
+        output_rows, columns=["group", "year_month", "z", "index", "n_countries", "weight_covered"]
+    )
+    return result.sort_values(["group", "year_month"]).reset_index(drop=True)
