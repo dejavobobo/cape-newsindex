@@ -3,8 +3,8 @@
 import pandas as pd
 import pytest
 
-import newsindex as ni
-from newsindex import aggregate as agg
+import cape_newsindex as ni
+from cape_newsindex import aggregate as agg
 
 
 def _country_index() -> pd.DataFrame:

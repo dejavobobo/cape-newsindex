@@ -1,6 +1,6 @@
 import pandas as pd
 
-from newsindex import dedup
+from cape_newsindex import dedup
 
 
 def test_canonical_url_normalizes_case_tracking_params_and_trailing_slash():

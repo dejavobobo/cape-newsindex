@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import newsindex as ni
-from newsindex import dictionary as _dictionary_module
+import cape_newsindex as ni
+from cape_newsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
 
@@ -124,7 +124,7 @@ def test_report_markdown(tmp_path, result):
     ni.report(result, out)
 
     content = out.read_text(encoding="utf-8")
-    assert content.startswith("# newsindex EPU report")
+    assert content.startswith("# cape_newsindex EPU report")
     assert "| country |" in content
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from newsindex import dedup, dictionary, index, read_articles
+from cape_newsindex import dedup, dictionary, index, read_articles
 
 
 def test_count_counts_epu_and_total_articles_per_site_month(tmp_path):

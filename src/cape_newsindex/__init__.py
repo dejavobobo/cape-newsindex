@@ -1,4 +1,4 @@
-"""newsindex: build news-based Economic Policy Uncertainty (EPU) indices.
+"""cape_newsindex: build news-based Economic Policy Uncertainty (EPU) indices.
 
 See the project README for the method and the module-by-module API
 (``match``, ``dictionary``, ``dedup``, ``index``, ``aggregate``).

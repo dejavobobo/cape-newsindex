@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import newsindex as ni
+import cape_newsindex as ni
 from test_fastscan import _build_messy_archive
 
 KEYWORDS = ni.dictionary.DEFAULT_PATH
@@ -228,7 +228,7 @@ def test_relative_output_folder_goes_next_to_the_running_script(tmp_path, monkey
     import sys
     import types
 
-    from newsindex.simple import output_folder
+    from cape_newsindex.simple import output_folder
 
     script_dir = tmp_path / "project"
     script_dir.mkdir()

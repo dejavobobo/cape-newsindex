@@ -1,4 +1,4 @@
-"""Ready-made weight sources for :func:`newsindex.aggregate.aggregate`.
+"""Ready-made weight sources for :func:`cape_newsindex.aggregate.aggregate`.
 
 Each of these matches ``aggregate()``'s existing ``weights`` parameter
 contract directly: either a DataFrame with ``country``/``year_month``/a
@@ -24,13 +24,13 @@ def equal(month_rows: pd.DataFrame, group_name: str) -> pd.Series:
     """Equal weighting: every country in the group counts the same.
 
     Matches ``aggregate()``'s callable-weights signature directly -- pass
-    ``newsindex.weights.equal`` itself as ``weights``, no call needed.
+    ``cape_newsindex.weights.equal`` itself as ``weights``, no call needed.
     """
     return pd.Series(1.0, index=month_rows.index)
 
 
 def gdp(path: str | Path | pd.DataFrame, **kwargs) -> pd.DataFrame:
-    """Thin wrapper around :func:`newsindex.aggregate.monthly_gdp`."""
+    """Thin wrapper around :func:`cape_newsindex.aggregate.monthly_gdp`."""
     return _aggregate.monthly_gdp(path, **kwargs)
 
 
@@ -47,7 +47,7 @@ def population(
     """Interpolate annual population (or any other annual-by-country metric)
     to monthly values, producing a ``population`` column.
 
-    Same interpolation behaviour as :func:`newsindex.aggregate.monthly_gdp`
+    Same interpolation behaviour as :func:`cape_newsindex.aggregate.monthly_gdp`
     (log-linear through each pair of annual figures, flat-carried forward
     after the last one) -- just a different output column name and default
     source-column names suited to a population file.

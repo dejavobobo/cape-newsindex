@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from newsindex import dictionary
-from newsindex import dictionary as _dictionary_module
+from cape_newsindex import dictionary
+from cape_newsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
 

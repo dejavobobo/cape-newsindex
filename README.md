@@ -1,23 +1,23 @@
-# newsindex
+# cape-newsindex
 
 Build news-based uncertainty indices from newspaper archives -- Economic Policy Uncertainty (EPU), or any index you define from two or more keyword groups, under your own name -- with the Baker, Bloom and Davis (2016) method, for any country and any language.
 
-You bring the scraped articles and your keywords; `newsindex` gives you a monthly index per country, with or without a history period, GDP-weighted indices for any blocks of countries, and a dashboard to read and share them.
+You bring the scraped articles and your keywords; `cape_newsindex` gives you a monthly index per country, with or without a history period, GDP-weighted indices for any blocks of countries, and a dashboard to read and share them.
 
 ## Usage
 
 ### 1. Install
 
 ```bash
-pip install newsindex[plot,excel]
+pip install cape-newsindex[plot,excel]
 ```
 
 To use a local copy of this repository instead, run this **inside the repository folder** (changes take effect without reinstalling):
 
 ```bash
-cd path/to/newsindex-library
+cd path/to/cape-newsindex
 python -m pip install -e ".[plot,excel]"
-python -c "import newsindex as ni; print(ni.__version__)"
+python -c "import cape_newsindex as ni; print(ni.__version__)"
 ```
 
 Requires Python 3.10+. `plot` adds matplotlib (charts), `excel` adds openpyxl (Excel output).
@@ -25,7 +25,7 @@ Requires Python 3.10+. `plot` adds matplotlib (charts), `excel` adds openpyxl (E
 ### 2. Build an index (one call)
 
 ```python
-import newsindex as ni
+import cape_newsindex as ni
 
 result = ni.build_index(
     archive   = "Scrapped_Top_Articles",                    # folder with one sub-folder per country

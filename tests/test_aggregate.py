@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import pytest
 
-from newsindex import aggregate
+from cape_newsindex import aggregate
 
 
 def test_monthly_gdp_log_linear_interpolation_and_flat_last_year(tmp_path):
