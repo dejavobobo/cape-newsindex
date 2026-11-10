@@ -505,6 +505,12 @@ def build_index(
         raise ValueError('groups must be a dict of country lists, e.g. {"Euro area": ["Germany", "France"]}.')
 
     # --- check the inputs -------------------------------------------------
+    for label, value in (("archive", archive), ("keywords", keywords), ("gdp", gdp)):
+        if isinstance(value, tuple) and len(value) == 1 and isinstance(value[0], (str, Path)):
+            raise TypeError(
+                f"{label} is a tuple, not a path -- usually a stray comma at the end of the line, like\n"
+                f"    {label} = r\"C:\\...\",\nRemove the comma after the closing quote."
+            )
     archive = input_path(archive)
     keywords = input_path(keywords) if isinstance(keywords, (str, Path)) else keywords
     gdp = input_path(gdp)

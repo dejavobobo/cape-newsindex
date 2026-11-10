@@ -319,3 +319,8 @@ def test_any_group_name_in_keyword_files(tmp_path):
     sheet.write_text("country,group,term\nNigeria,ENERGY_TERMS,oil\nNigeria,Climate,drought\n", encoding="utf-8")
     entry = ni.dictionary.read(sheet)["Nigeria"]
     assert entry.energy == ("oil",) and entry.terms("climate") == ("drought",)
+
+
+def test_stray_comma_after_a_path_is_explained(archive):
+    with pytest.raises(TypeError, match="stray comma"):
+        ni.build_index((str(archive),), KEYWORDS, TWO, "2024-01", "2024-04", verbose=False)

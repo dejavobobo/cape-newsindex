@@ -101,8 +101,20 @@ def _line_chart(series: dict[str, pd.DataFrame], title: str, *, y="EPU", ref=100
     if ref is not None:
         ax.axhline(ref, color="grey", linewidth=0.8, linestyle=":")
     small = width < 8
-    # Numeric dates (2024-01). Small charts get fewer, well-spaced labels.
-    ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=3, maxticks=4 if small else 10))
+    # Numeric dates (2024-01), evenly spaced: pick a month step that gives at
+    # most 4 labels on small charts and 10 on wide ones.
+    months = [m for g in series.values() for m in g["year_month"]]
+    span = 1
+    if months:
+        first, last = pd.Period(min(months), freq="M"), pd.Period(max(months), freq="M")
+        span = (last - first).n + 1
+    limit = 4 if small else 10
+    step = next((s for s in (1, 2, 3, 6, 12, 24, 36, 60, 120) if span / s <= limit), 120)
+    if step >= 12:
+        ax.xaxis.set_major_locator(mdates.YearLocator(base=step // 12))
+    else:
+        ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=range(1, 13, step) if 12 % step == 0 else None,
+                                                       interval=1 if 12 % step == 0 else step))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
     if small:
         ax.tick_params(labelsize=8)
