@@ -1,12 +1,11 @@
-"""Country z-scores, weighting, and regional / Africa aggregation.
+"""Country z-scores, weighting, and group indices for blocks of countries you define.
 
-Implements the four computation steps from the CAPE Africa EPU methodology:
-standardise each country's index against its own history, weight by
-within-group share (GDP-PPP by default, or any table or custom weighting
-function -- see :func:`aggregate`), take the weighted average of country
-z-scores, and rescale the result to a history mean of 100 and standard
-deviation of 10. The Africa aggregate applies the same four steps across all
-countries directly; it is not an average of the regional series.
+Four steps: standardise each country's index against its own scaling period,
+weight by within-group share (GDP by default, or any table or custom weighting
+function -- see :func:`aggregate`), take the weighted average of the country
+z-scores, and rescale the result to a scaling-period mean of 100 and standard
+deviation of 10. Each group is computed from its countries directly, so a large
+group is not an average of smaller ones.
 """
 
 from __future__ import annotations
@@ -16,86 +15,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-#: The five CAPE African regions, as published in the Africa EPU Index
-#: methodology (Table 8). Country names match the keys used in the
-#: production ``eptu_country_keywords.json`` dictionary.
-AFRICA_REGIONS: dict[str, list[str]] = {
-    "Central": [
-        "Cameroon",
-        "Central African Republic",
-        "Chad",
-        "Congo",
-        "Congo DRC",
-        "Equatorial Guinea",
-        "Gabon",
-    ],
-    "East": [
-        "Burundi",
-        "Comoros",
-        "Djibouti",
-        "Eritrea",
-        "Ethiopia",
-        "Kenya",
-        "Rwanda",
-        "Seychelles",
-        "Somalia",
-        "South Sudan",
-        "Sudan",
-        "Tanzania",
-        "Uganda",
-    ],
-    "North": ["Algeria", "Egypt", "Libya", "Mauritania", "Morocco", "Tunisia"],
-    "Southern": [
-        "Angola",
-        "Botswana",
-        "Eswatini",
-        "Lesotho",
-        "Madagascar",
-        "Malawi",
-        "Mauritius",
-        "Mozambique",
-        "Namibia",
-        "Sao Tome and Principe",
-        "South Africa",
-        "Zambia",
-        "Zimbabwe",
-    ],
-    "West": [
-        "Benin",
-        "Burkina-Faso",
-        "Cape Verde",
-        "Gambia",
-        "Ghana",
-        "Guinea",
-        "Guinea-Bissau",
-        "Ivory Coast",
-        "Liberia",
-        "Mali",
-        "Niger",
-        "Nigeria",
-        "Senegal",
-        "Sierra Leone",
-        "Togo",
-    ],
-}
-
-#: Country-name aliases between common GDP source spellings and the names
-#: used by :data:`AFRICA_REGIONS` and the EPU keyword dictionary.
-DEFAULT_COUNTRY_ALIASES: dict[str, str] = {
-    "Cabo Verde": "Cape Verde",
-    "Burkina Faso": "Burkina-Faso",
-    "Congo, The Democratic Republic of the": "Congo DRC",
-    "Democratic Republic of the Congo": "Congo DRC",
-    "Congo, Dem. Rep.": "Congo DRC",
-    "Congo, Rep.": "Congo",
-    "Cote d'Ivoire": "Ivory Coast",
-    "Côte d'Ivoire": "Ivory Coast",
-    "Eswatini (Swaziland)": "Eswatini",
-    "Sao Tome and Principe": "Sao Tome and Principe",
-    "The Gambia": "Gambia",
-}
-
 
 def _interpolate_annual_to_monthly(
     raw: pd.DataFrame,
@@ -118,9 +37,9 @@ def _interpolate_annual_to_monthly(
     ``output_col`` rather than a fixed ``"gdp"``, so the same logic serves
     any annual-by-country metric.
     """
-    aliases = DEFAULT_COUNTRY_ALIASES if aliases is None else aliases
     raw = raw.copy() if isinstance(raw, pd.DataFrame) else pd.read_csv(raw)
-    raw[country_col] = raw[country_col].map(lambda c: aliases.get(c, c))
+    if aliases:  # only the renames you ask for, e.g. {"Burkina Faso": "Burkina-Faso"}
+        raw[country_col] = raw[country_col].map(lambda c: aliases.get(c, c))
 
     rows: list[dict] = []
     for country, group in raw.groupby(country_col):
@@ -187,6 +106,9 @@ def monthly_gdp(
 
     ``scale`` multiplies every value after it is read, e.g. ``scale=1000``
     to convert a billions-denominated source file to millions.
+
+    ``aliases`` renames countries so they match your archive's folder names,
+    e.g. ``{"Burkina Faso": "Burkina-Faso"}``. Nothing is renamed otherwise.
     """
     return _interpolate_annual_to_monthly(
         source,
@@ -208,18 +130,22 @@ def _population_stats(series: pd.Series) -> tuple[float, float]:
 def aggregate(
     country_index: pd.DataFrame,
     weights: pd.DataFrame | Callable[[pd.DataFrame, str], pd.Series],
-    groups: dict[str, list[str]] = AFRICA_REGIONS,
+    groups: dict[str, list[str]] | None = None,
     *,
     weight_col: str = "gdp",
+    value: str | None = None,
     history=None,
-    history_start: str = "2015-01",
-    history_end: str = "2025-12",
-    include_africa: bool = True,
+    history_start: str | None = None,
+    history_end: str | None = None,
 ) -> pd.DataFrame:
-    """Weighted regional (and, by default, Africa-wide) EPU series.
+    """Weighted group indices for the blocks of countries you define.
 
-    ``country_index`` must have ``country``, ``year_month``, and ``EPU``
-    columns (as produced by :func:`CAPEnewsindex.index.score`).
+    ``country_index`` has ``country``, ``year_month`` and the index column
+    (``EPU``, ``TPU``, ... -- found automatically, or name it with ``value``),
+    as produced by :func:`CAPEnewsindex.index.score` or :func:`CAPEnewsindex.build_index`.
+
+    ``groups`` is ``{"Block name": [countries], ...}``; a country may be in
+    several blocks. Without ``groups``, all countries form one block, "All countries".
 
     ``weights`` controls how countries are combined within each group, and
     is either:
@@ -237,12 +163,21 @@ def aggregate(
       they are divided by their own sum -- so e.g. equal weighting is
       ``lambda rows, group: pandas.Series(1.0, index=rows.index)``.
 
-    Pass the :class:`CAPEnewsindex.index.History` used to score ``country_index``
-    as ``history`` to reuse its window instead of repeating
-    ``history_start``/``history_end``.
+    The scaling period: pass the :class:`CAPEnewsindex.index.History` used to
+    score ``country_index`` as ``history`` to reuse its window, or give
+    ``history_start``/``history_end``. Without either, all months in
+    ``country_index`` are the scaling period (the no-history version).
     """
+    from .index import value_column
+
+    value = value or value_column(country_index)
     if history is not None:
         history_start, history_end = history.start, history.end
+    months = country_index["year_month"].astype(str)
+    history_start = history_start or months.min()
+    history_end = history_end or months.max()
+    if groups is None:
+        groups = {"All countries": sorted(country_index["country"].unique())}
     if callable(weights):
         merged = country_index.copy()
     else:
@@ -252,7 +187,7 @@ def aggregate(
         (merged["year_month"] >= history_start) & (merged["year_month"] <= history_end)
     ]
     country_stats = {
-        country: _population_stats(rows["EPU"])
+        country: _population_stats(rows[value])
         for country, rows in history_window.groupby("country")
         if len(rows) >= 2
     }
@@ -261,12 +196,9 @@ def aggregate(
     merged["m_c"] = merged["country"].map(lambda c: country_stats[c][0])
     merged["s_c"] = merged["country"].map(lambda c: country_stats[c][1])
     merged = merged[merged["s_c"] > 0]
-    merged["z"] = (merged["EPU"] - merged["m_c"]) / merged["s_c"]
+    merged["z"] = (merged[value] - merged["m_c"]) / merged["s_c"]
 
     all_groups = dict(groups)
-    if include_africa:
-        africa_members = sorted({country for members in groups.values() for country in members})
-        all_groups = {**all_groups, "Africa": africa_members}
 
     group_rows: list[dict] = []
     for group_name, members in all_groups.items():

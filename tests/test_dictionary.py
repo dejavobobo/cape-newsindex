@@ -5,7 +5,7 @@ import pytest
 from CAPEnewsindex import dictionary
 from CAPEnewsindex import dictionary as _dictionary_module
 
-DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
+DATA_DICTIONARY = _dictionary_module.TEMPLATE_PATH
 
 
 @pytest.fixture(scope="module")

@@ -9,7 +9,7 @@ import pytest
 import CAPEnewsindex as ni
 from test_fastscan import _build_messy_archive
 
-KEYWORDS = ni.dictionary.DEFAULT_PATH
+KEYWORDS = ni.dictionary.TEMPLATE_PATH
 GDP = Path(__file__).resolve().parent / "data" / "gdp_ppp_2015_2025.csv"
 TWO = ["Nigeria", "Morocco"]
 
@@ -22,7 +22,7 @@ def archive(tmp_path):
 
 def test_two_countries_no_history_matches_run_index(archive):
     result = ni.build_index(archive, KEYWORDS, ["nigeria", "MOROCCO"], "2024-01", "2024-04", verbose=False, cache=False)
-    expected = ni.run_index(archive, None, "2024-01", "2024-04", countries=TWO, verbose=False)
+    expected = ni.run_index(archive, KEYWORDS, "2024-01", "2024-04", countries=TWO, verbose=False)
     assert result.country.reset_index(drop=True).equals(expected.reset_index(drop=True))
     assert set(result.wide.columns) <= set(TWO)
 
@@ -30,7 +30,7 @@ def test_two_countries_no_history_matches_run_index(archive):
 def test_two_countries_with_history_matches_run_index_with_history(archive):
     result = ni.build_index(archive, KEYWORDS, TWO, "2024-03", "2024-04", history=("2024-01", "2024-02"),
                             verbose=False, cache=False)
-    expected, _ = ni.run_index_with_history(archive, None, windows=[("2024-03", "2024-04")],
+    expected, _ = ni.run_index_with_history(archive, KEYWORDS, windows=[("2024-03", "2024-04")],
                                              history_start="2024-01", history_end="2024-02",
                                              countries=TWO, verbose=False)
     assert result.country.reset_index(drop=True).equals(expected.drop(columns="window").reset_index(drop=True))
@@ -48,10 +48,25 @@ def test_gdp_alone_gives_one_group_of_all_countries(archive):
     assert set(result.groups["group"]) == {"All countries"}
 
 
-def test_africa_preset(archive):
-    result = ni.build_index(archive, KEYWORDS, ["Nigeria", "Morocco", "Egypt"], "2024-01", "2024-04", gdp=GDP,
-                            groups="africa", verbose=False, cache=False)
-    assert set(result.groups["group"]) <= {"West", "North", "Africa"} and "Africa" in set(result.groups["group"])
+def test_there_is_no_built_in_region_preset(archive):
+    with pytest.raises(ValueError, match="groups must be a dict"):
+        ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=GDP, groups="africa", verbose=False)
+
+
+def test_gdp_names_renames_only_what_you_ask(archive, tmp_path):
+    gdp = __import__("pandas").DataFrame({"Country": ["NGA", "NGA", "Morocco", "Morocco"],
+                                          "Year": [2023, 2024, 2023, 2024], "GDP": [1.0, 2.0, 3.0, 4.0]})
+    out = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=gdp, verbose=False, cache=False)
+    assert out.settings["groups"]["All countries"] == ["Morocco"]          # "NGA" doesn't match a folder
+    out = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=gdp, gdp_names={"NGA": "Nigeria"},
+                         verbose=False, cache=False)
+    assert sorted(out.settings["groups"]["All countries"]) == ["Morocco", "Nigeria"]
+
+
+def test_start_defaults_to_the_first_month_in_the_archive(archive):
+    out = ni.build_index(archive, KEYWORDS, TWO, verbose=False, cache=False)
+    first = min(m.name for c in TWO for s in (archive / c).iterdir() if s.is_dir() for m in s.iterdir() if m.is_dir())
+    assert out.settings["period"].split("..")[0] == first
 
 
 def test_groups_without_gdp_are_skipped(archive, capsys):
@@ -84,7 +99,7 @@ def test_saved_history_can_be_reused(archive, tmp_path):
     first.history.save(tmp_path / "history.json")
     again = ni.build_index(archive, KEYWORDS, TWO, "2024-03", "2024-04", history=tmp_path / "history.json",
                            verbose=False, cache=False)
-    expected, _ = ni.run_index_with_history(archive, None, windows=[("2024-03", "2024-04")],
+    expected, _ = ni.run_index_with_history(archive, KEYWORDS, windows=[("2024-03", "2024-04")],
                                              history=ni.index.History.load(tmp_path / "history.json"),
                                              countries=TWO, verbose=False)
     assert again.country.reset_index(drop=True).equals(expected.drop(columns="window").reset_index(drop=True))
@@ -266,7 +281,7 @@ def test_bad_groups_are_explained(archive):
 ])
 def test_other_indices_count_articles_with_every_group(archive, index, groups):
     result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", index=index, verbose=False, cache=False)
-    kw = ni.dictionary.load()
+    kw = ni.dictionary.load(KEYWORDS)
     counts = ni.index.count_archive(archive, kw, countries=TWO, start="2024-01", end="2024-04", groups=groups)
     expected = ni.index.compute_index(counts, "2024-01", "2024-04").rename(columns={"EPU": result.measure})
     assert result.country.reset_index(drop=True).equals(expected.reset_index(drop=True))
@@ -324,3 +339,54 @@ def test_any_group_name_in_keyword_files(tmp_path):
 def test_stray_comma_after_a_path_is_explained(archive):
     with pytest.raises(TypeError, match="stray comma"):
         ni.build_index((str(archive),), KEYWORDS, TWO, "2024-01", "2024-04", verbose=False)
+
+
+def _headings(path):
+    import re
+    return set(re.findall(r'<h3><span class="dot"[^>]*></span>([^<]*)', path.read_text(encoding="utf-8")))
+
+
+def test_dashboard_has_no_region_headings_without_groups(archive, tmp_path):
+    # African countries, but no groups given: the dashboard must not invent regions.
+    result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", verbose=False, cache=False)
+    page = result.dashboard(tmp_path / "d.html")
+    assert _headings(page) == set()
+    assert "West" not in page.read_text(encoding="utf-8") and "North" not in page.read_text(encoding="utf-8")
+
+
+def test_dashboard_headings_follow_your_groups(archive, tmp_path):
+    import pandas as pd
+    gdp = pd.DataFrame({"Country": ["Nigeria", "Nigeria", "Morocco", "Morocco"],
+                        "Year": [2023, 2024, 2023, 2024], "GDP": [1.0, 2.0, 3.0, 4.0]})
+    result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=gdp,
+                            groups={"Block A": ["Nigeria"], "Block B": ["Morocco"]}, verbose=False, cache=False)
+    page = result.dashboard(tmp_path / "d.html")
+    assert {h.strip() for h in _headings(page)} == {"Block A", "Block B"}
+    # one group holding every country gives no headings either
+    result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=gdp, verbose=False, cache=False)
+    assert _headings(result.dashboard(tmp_path / "e.html")) == set()
+
+
+def test_countries_without_gdp_keep_their_index_but_are_in_no_group(archive, tmp_path):
+    import pandas as pd
+    gdp = pd.DataFrame({"Country": ["Nigeria", "Nigeria"], "Year": [2023, 2024], "GDP": [1.0, 2.0]})
+    result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", gdp=gdp,
+                            groups={"Block A": ["Nigeria", "Morocco"]}, verbose=False, cache=False)
+    assert result.settings["groups"] == {"Block A": ["Nigeria"]}          # Morocco has no GDP
+    assert result.settings["no_gdp"] == ["Morocco"]
+    assert "Morocco" in set(result.country["country"])                     # but keeps its own index
+    heads = {h.strip() for h in _headings(result.dashboard(tmp_path / "d.html"))}
+    assert heads == {"Block A", "No GDP - not in any group"}
+
+
+def test_dashboard_title_can_be_set(archive, tmp_path):
+    result = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", title="My EPU <Index>",
+                            verbose=False, cache=False)
+    page = result.dashboard(tmp_path / "a.html").read_text(encoding="utf-8")
+    assert "<h1>My EPU &lt;Index&gt;</h1>" in page and "<title>My EPU &lt;Index&gt;</title>" in page
+    page = result.dashboard(tmp_path / "b.html", title="Other title").read_text(encoding="utf-8")
+    assert "<h1>Other title</h1>" in page
+    result.save(tmp_path / "out", files="dashboard", title="Saved title")
+    assert "<h1>Saved title</h1>" in (tmp_path / "out" / "epu_dashboard.html").read_text(encoding="utf-8")
+    plain = ni.build_index(archive, KEYWORDS, TWO, "2024-01", "2024-04", verbose=False, cache=False)
+    assert " dashboard</h1>" in plain.dashboard(tmp_path / "c.html").read_text(encoding="utf-8")

@@ -23,7 +23,7 @@ from CAPEnewsindex.match import (
     word_tokens,
 )
 
-DATA_DICTIONARY = dictionary.DEFAULT_PATH
+DATA_DICTIONARY = dictionary.TEMPLATE_PATH
 KW = dictionary.load(DATA_DICTIONARY)
 FILL = "the of and to said government market city le la de et les في من على الحكومة".split()
 COUNTRIES = ["Nigeria", "Morocco", "Egypt", "Ivory Coast"]

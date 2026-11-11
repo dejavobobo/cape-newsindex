@@ -1,4 +1,4 @@
-"""CAPEnewsindex: build news-based Economic Policy Uncertainty (EPU) indices.
+"""CAPEnewsindex: build news-based uncertainty indices (EPU, TPU, or any index you define).
 
 See the project README for the method and the module-by-module API
 (``match``, ``dictionary``, ``dedup``, ``index``, ``aggregate``).
@@ -8,20 +8,10 @@ from __future__ import annotations
 
 from . import aggregate, dedup, dictionary, index, match, weights
 from ._version import __version__
-from .aggregate import AFRICA_REGIONS
 from .articles import read_articles
 from .countries import countries
 from .diagnostics import coverage, dictionary_coverage, health_check, validate_archive
-from .pipeline import (
-    index_all,
-    index_countries,
-    index_region,
-    index_since,
-    quick_index,
-    rerun,
-    run_index,
-    run_index_with_history,
-)
+from .pipeline import run_index, run_index_with_history
 from .plot import (
     plot,
     plot_history,
@@ -44,7 +34,6 @@ keywords_template = dictionary.template
 from .report import report as report
 from .report import summarize, top
 from .save import (
-    autosave,
     load,
     save,
     save_all,
@@ -71,15 +60,8 @@ __all__ = [
     "weights",
     "read_articles",
     "countries",
-    "AFRICA_REGIONS",
     "run_index",
     "run_index_with_history",
-    "quick_index",
-    "index_all",
-    "index_countries",
-    "index_region",
-    "index_since",
-    "rerun",
     "summarize",
     "print_period",
     "describe",
@@ -114,7 +96,6 @@ __all__ = [
     "save_gsheet",
     "save_all",
     "save_versioned",
-    "autosave",
     "load",
     "save_report",
 ]

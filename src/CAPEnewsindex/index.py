@@ -1,9 +1,9 @@
-"""Count EPU articles per newspaper-month, fit the frozen history scaling, and score
-new months.
+"""Count matching articles per newspaper-month, fit the frozen history scaling, and
+score new months.
 
-This module implements the Baker, Bloom and Davis (2016) scaling method
-documented in the CAPE Africa EPU methodology: for newspaper *i* in month
-*t*, ``S_it`` is the EPU article share, ``N_it = S_it / sigma_i`` standardises
+This module implements the Baker, Bloom and Davis (2016) scaling method: for
+newspaper *i* in month *t*, ``S_it`` is the share of articles matching every
+keyword group of the index (EPU, TPU, ...), ``N_it = S_it / sigma_i`` standardises
 it against the newspaper's history standard deviation, ``M_t`` is the mean
 of ``N_it`` across newspapers, and ``EPU_t = 100 * M_t / mu`` rescales to a
 history mean of 100. ``sigma_i``, ``mu``, and the retained newspapers are
@@ -28,6 +28,32 @@ from .articles import iter_country_month_batches
 from .dictionary import Dictionary
 from .dictionary import EPU_GROUPS
 from .match import IndexMatcher, light_normalize
+
+
+#: Columns of result tables that are never the index value itself.
+_NOT_INDEX = {"country", "year_month", "M_t", "mu", "n_sites", "window", "group", "z", "n_countries",
+              "weight_covered", "version", "site", "year", "month", "quarter"}
+
+
+def value_column(table: pd.DataFrame) -> str:
+    """The index column of a result table: ``EPU``, ``TPU``, ``PU``, ... -- whatever you named it.
+
+    For a group table (``group``, ``year_month``, ``index``, ...) it is ``"index"``.
+    """
+    candidates = [c for c in table.columns
+                  if c not in _NOT_INDEX and not str(c).endswith(("_articles", "_smoothed", "share %"))
+                  and pd.api.types.is_numeric_dtype(table[c])]
+    if len(candidates) == 1:
+        return candidates[0]
+    if "EPU" in candidates:
+        return "EPU"
+    if "index" in table.columns:
+        return "index"
+    raise ValueError(
+        "Could not tell which column holds the index values"
+        + (f" (candidates: {', '.join(map(str, candidates))})" if candidates else "")
+        + ". Name it, e.g. value=\"TPU\"."
+    )
 
 
 def count(
@@ -57,6 +83,7 @@ def count(
     every piece of a term is present, and the next component only if the
     previous one matched (EPU requires all three).
     """
+    dictionary = dictionary.for_countries(sorted(set(articles[country_col].astype(str))))
     missing = sorted(set(articles[country_col]) - set(dictionary.countries))
     if missing:
         raise KeyError(f"countries missing from dictionary: {missing}")
@@ -154,6 +181,10 @@ def count_archive(
     )
     if engine not in ("fast", "pandas"):
         raise ValueError(f"engine must be 'fast' or 'pandas', got {engine!r}")
+    if "*" in dictionary.countries:  # the same terms for every country folder
+        from .articles import _resolve_countries
+
+        dictionary = dictionary.for_countries(_resolve_countries(Path(root), countries))
     if engine == "fast" and standard_columns:
         from .fastscan import count_archive_fast
 

@@ -130,6 +130,8 @@ def dictionary_coverage(
     """
     root = Path(root)
     archive_countries = set(_resolve_countries(root, countries))
+    if "*" in dictionary.countries:  # terms for every country cover the whole archive
+        dictionary = dictionary.for_countries(sorted(archive_countries | (set(dictionary.countries) - {"*"})))
     dictionary_countries = set(dictionary.countries)
 
     if countries is None or countries == "all":
@@ -149,7 +151,7 @@ def dictionary_coverage(
 
 def health_check(
     root: str | Path,
-    dictionary_path: str | Path,
+    keywords,
     *,
     countries: list[str] | str | None = None,
     sample_files_per_country: int = 50,
@@ -157,7 +159,7 @@ def health_check(
 ) -> dict:
     """One-call "is everything wired up correctly" smoke test before a big run.
 
-    Loads the dictionary, compares it against the archive
+    Loads your keywords (a .xlsx/.csv/.txt/.json file or a dict), compares them against the archive
     (:func:`dictionary_coverage`), measures what's actually present
     (:func:`coverage`), and validates a bounded sample of files per country
     (:func:`validate_archive`, capped at ``sample_files_per_country`` files
@@ -169,11 +171,8 @@ def health_check(
     ``countries_in_dictionary_not_archive``, ``n_country_months``,
     ``n_issues``, ``issues`` (the sampled :func:`validate_archive` table).
     """
-    path = Path(dictionary_path)
-    if not path.exists():
-        raise FileNotFoundError(f"dictionary file not found: {path}")
-    _log(verbose, f"Loading dictionary from {path} ...")
-    kw = _dictionary.load(path)
+    _log(verbose, "Loading keywords ...")
+    kw = _dictionary.read(keywords)  # any format; a missing file is reported by name
 
     _log(verbose, "Checking dictionary coverage against the archive ...")
     dict_cov = dictionary_coverage(kw, root, countries=countries)

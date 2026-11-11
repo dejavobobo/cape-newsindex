@@ -28,6 +28,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
+from ._anyindex import any_index
+
 def _require_matplotlib(fn_name: str):
     try:
         import matplotlib.pyplot as plt
@@ -63,6 +65,7 @@ def _check_backend(backend: str, fn_name: str) -> None:
         raise ValueError(f"unknown backend {backend!r} for {fn_name}(); use 'matplotlib', 'plotly', or 'seaborn'")
 
 
+@any_index
 def plot(result, *, kind: str = "line", backend: str = "matplotlib", **kwargs):
     """One line/bar/area per country of ``EPU`` over ``year_month``, zero configuration.
 
@@ -116,6 +119,7 @@ def plot(result, *, kind: str = "line", backend: str = "matplotlib", **kwargs):
     return fig
 
 
+@any_index
 def plot_compare(result, countries=None, *, backend: str = "matplotlib"):
     """Multi-country overlay of ``EPU`` on one chart.
 
@@ -163,6 +167,7 @@ def plot_regions(regions_result, *, backend: str = "matplotlib"):
     return fig
 
 
+@any_index
 def plot_heatmap(result, *, backend: str = "matplotlib"):
     """Country x month heatmap of ``EPU`` intensity.
 
@@ -201,6 +206,7 @@ def plot_heatmap(result, *, backend: str = "matplotlib"):
     return fig
 
 
+@any_index
 def plot_rank(result, year_month: str, *, backend: str = "matplotlib"):
     """Bar chart ranking countries by ``EPU`` for one ``year_month``.
 
@@ -239,6 +245,7 @@ def _rolling_epu(result, window: int):
     return sorted_result.assign(EPU_smoothed=smoothed)
 
 
+@any_index
 def plot_rolling(result, window: int = 3, *, backend: str = "matplotlib"):
     """Smoothed (rolling-average) trend line over the raw ``EPU`` series.
 
@@ -276,6 +283,7 @@ def plot_rolling(result, window: int = 3, *, backend: str = "matplotlib"):
     return fig
 
 
+@any_index
 def plot_distribution(result, *, kind: str = "hist", backend: str = "matplotlib"):
     """Histogram (``kind="hist"``) or boxplot (``kind="box"``) of ``EPU``
     values across countries/months.
@@ -320,6 +328,16 @@ def plot_distribution(result, *, kind: str = "hist", backend: str = "matplotlib"
 
 
 def plot_components(counts, *, backend: str = "matplotlib"):
+    """Matching vs other articles over time (``counts`` from ``result.counts`` or :func:`CAPEnewsindex.index.count`)."""
+    hits = [c for c in counts.columns if str(c).endswith("_articles") and c != "all_articles"]
+    name = hits[0][: -len("_articles")].upper() if hits else "EPU"
+    if hits and hits[0] != "epu_articles":
+        counts = counts.rename(columns={hits[0]: "epu_articles"})
+    from ._anyindex import _back
+    return _back(_plot_components(counts, backend=backend), name)
+
+
+def _plot_components(counts, *, backend: str = "matplotlib"):
     """Stacked area of EPU vs. non-EPU article volume over time.
 
     ``counts`` is a table like :func:`CAPEnewsindex.index.count`'s output:
@@ -397,6 +415,7 @@ def plot_history(history, *, backend: str = "matplotlib"):
     return fig
 
 
+@any_index
 def plot_correlation(result, external_series, *, backend: str = "matplotlib"):
     """Dual-axis overlay of a single country's ``EPU`` against an external series.
 
@@ -453,6 +472,7 @@ def plot_correlation(result, external_series, *, backend: str = "matplotlib"):
     return fig
 
 
+@any_index
 def plot_dashboard(result, *, backend: str = "matplotlib"):
     """One multi-panel figure: trend, latest-month ranking, and EPU distribution.
 

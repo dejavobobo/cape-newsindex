@@ -9,7 +9,7 @@ import pytest
 import CAPEnewsindex as ni
 from CAPEnewsindex import dictionary as _dictionary_module
 
-DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
+DATA_DICTIONARY = _dictionary_module.TEMPLATE_PATH
 
 
 def _write(path: Path, rows: list[str]) -> None:

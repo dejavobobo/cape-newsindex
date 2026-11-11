@@ -2,7 +2,7 @@
 
 A pure reference table, not consumed by any other function in this
 library. It exists so a user building their own country groupings (for
-:func:`CAPEnewsindex.aggregate.aggregate_regions` or anything else) has a
+``groups=`` in :func:`CAPEnewsindex.build_index`, or anything else) has a
 standard, verified list of countries, codes, and regions to start from,
 without compiling one by hand.
 
@@ -19,12 +19,10 @@ fine-grained level). ``continent``/``sub_region``/``intermediate_region``
 are blank for the two ISO entries the UN M49 scheme does not classify
 (Antarctica; Taiwan, which is not a UN member).
 
-Names are ISO 3166-1's official short names, which do not always match
-the names used elsewhere in this library (e.g. this table's "Congo,
-Democratic Republic of the" is "Congo DRC" in
-:data:`CAPEnewsindex.aggregate.AFRICA_REGIONS` and the EPU dictionary) --
-the same kind of mismatch :data:`CAPEnewsindex.aggregate.DEFAULT_COUNTRY_ALIASES`
-already bridges for GDP source files.
+Names are ISO 3166-1's official short names, which may not match your
+archive's country folder names (e.g. "Congo, Democratic Republic of the" vs a
+folder called "Congo DRC"); use the names of your folders in ``groups=``, and
+``gdp_names=`` to bridge a GDP file that spells them differently.
 """
 
 from __future__ import annotations

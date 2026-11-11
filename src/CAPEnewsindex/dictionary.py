@@ -90,6 +90,17 @@ class Dictionary:
     def __contains__(self, country: str) -> bool:
         return country in self.countries
 
+    def for_countries(self, names) -> "Dictionary":
+        """The keywords for these countries, using the ``*`` (every country) terms
+        for any country without its own entry."""
+        shared = self.countries.get("*")
+        if shared is None:
+            return self
+        import dataclasses
+
+        picked = {str(n): self.countries.get(str(n), shared) for n in names}
+        return dataclasses.replace(self, countries=picked)
+
     def __iter__(self):
         return iter(self.countries)
 
@@ -105,8 +116,11 @@ class Dictionary:
         return list(names)
 
 
-#: The production EPTU dictionary shipped with the package (54 African countries).
-DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "eptu_country_keywords.json"
+#: The keyword template shipped with the package: CAPE's production dictionary
+#: (54 African countries; economic, policy, uncertainty and trade terms). It is
+#: only used when you ask for it -- :func:`template` writes it out for you to
+#: edit -- never as a silent default.
+TEMPLATE_PATH = Path(__file__).resolve().parent / "data" / "eptu_country_keywords.json"
 
 
 def _clean(values) -> tuple[str, ...]:
@@ -139,13 +153,13 @@ def _add_shared(rows: dict, shared: dict | None) -> None:
                 groups[g] = list(groups.get(g, [])) + list(terms)
 
 
-def load(path: str | Path | None = None) -> Dictionary:
+def load(path: str | Path) -> Dictionary:
     """Load an EPTU-schema JSON file (keys like ``ECONOMY_TERMS``, ``ENERGY_TERMS``).
 
-    With no ``path``, loads the production dictionary bundled with the
-    package (:data:`DEFAULT_PATH`). Every ``*_TERMS`` list becomes a group.
+    Every ``*_TERMS`` list becomes a group. (The bundled template is
+    ``load(TEMPLATE_PATH)``.)
     """
-    path = Path(path) if path is not None else DEFAULT_PATH
+    path = Path(path)
     raw = json.loads(path.read_text(encoding="utf-8"))
     entries = raw.get("countries", raw)
     rows = {}
@@ -413,14 +427,15 @@ def save_keywords(dictionary: Dictionary, path: str | Path, countries=None, grou
 
 
 def template(path: str | Path = "my_keywords.xlsx", countries=None, groups=None) -> Path:
-    """Write the bundled production keywords as an editable file to start from.
+    """Write the bundled keyword template as an editable file to start from.
 
     Pick the format with the extension: ``.xlsx`` (Excel), ``.csv``, ``.txt``
-    or ``.json``. The production dictionary has economic, policy, uncertainty
-    and trade terms; add groups of your own (e.g. energy) in the file.
+    or ``.json``. The template is CAPE's production dictionary (54 African
+    countries; economic, policy, uncertainty and trade terms): replace or add
+    countries and groups (e.g. energy) for your own work.
     ``countries`` / ``groups`` limit what is written (default: everything).
     """
-    path = save_keywords(load(), path, countries=countries, groups=groups)
-    n = len(to_table(load(), countries=countries, groups=[group_name(g) for g in groups] if groups else None))
+    path = save_keywords(load(TEMPLATE_PATH), path, countries=countries, groups=groups)
+    n = len(to_table(load(TEMPLATE_PATH), countries=countries, groups=[group_name(g) for g in groups] if groups else None))
     print(f"Keyword template written to {path.resolve()} ({n:,} terms). Edit it, then pass it as keywords=.")
     return path

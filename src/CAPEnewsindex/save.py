@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from ._anyindex import label as _label
+
 # Importing specific names rather than `from . import report as _report`:
 # __init__.py does `from .report import report as report`, which rebinds the
 # *package's* `report` attribute to that function -- a plain module import
@@ -203,30 +205,6 @@ def save_versioned(
     return path
 
 
-def autosave(result: pd.DataFrame, project) -> Path:
-    """Save ``result`` using a project's configured default path/format.
-
-    ``project`` is a provisional, duck-typed shape pending a real
-    ``Project`` config/paths helper class (not implemented yet): either a
-    plain ``dict`` with keys ``folder`` (required), ``format`` (default
-    ``"csv"``), ``name`` (default ``"result"``), or any object exposing the
-    same three as attributes. Saves via :func:`save` to
-    ``Path(folder) / f"{name}.{format}"`` and returns that path.
-    """
-    if isinstance(project, dict):
-        folder = project["folder"]
-        fmt = project.get("format", "csv")
-        name = project.get("name", "result")
-    else:
-        folder = project.folder
-        fmt = getattr(project, "format", "csv")
-        name = getattr(project, "name", "result")
-
-    path = Path(folder) / f"{name}.{fmt}"
-    save(result, path)
-    return path
-
-
 _LOADERS_BY_SUFFIX = {
     ".csv": pd.read_csv,
     ".xlsx": pd.read_excel,
@@ -264,7 +242,7 @@ def _docx_report(result: pd.DataFrame, path: str | Path) -> None:
         ) from exc
 
     document = docx.Document()
-    document.add_heading("CAPEnewsindex EPU report", level=1)
+    document.add_heading(f"CAPEnewsindex {_label(result)} report", level=1)
     for line in _summarize(result).splitlines():
         document.add_paragraph(line)
 
@@ -295,7 +273,7 @@ def _pdf_report(result: pd.DataFrame, path: str | Path) -> None:
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "CAPEnewsindex EPU report", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, f"CAPEnewsindex {_label(result)} report", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 11)
     for line in _summarize(result).splitlines():

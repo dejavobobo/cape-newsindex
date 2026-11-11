@@ -1,7 +1,7 @@
 """One self-contained HTML dashboard for an :class:`CAPEnewsindex.IndexResult`.
 
 The dashboard has separate pages -- Overview, Regions (one chart per group
-of countries), Countries (one chart per country, organised by region),
+of countries), Countries (one chart per country, under your groups if any),
 Newspapers, Keywords and About -- and a switch between the with-history
 and no-history versions.
 
@@ -255,28 +255,35 @@ def _series(table: pd.DataFrame | None, key: str, value: str) -> dict[str, list]
     return out
 
 
-def _sections(countries: list[str], blocks: dict[str, list[str]]) -> list[tuple[str, list[str]]]:
-    """Countries organised under headings: the smallest group each belongs to, else its African region."""
-    from .aggregate import AFRICA_REGIONS
+def _sections(countries: list[str], groups: dict[str, list[str]],
+              no_gdp=()) -> list[tuple[str, list[str]]]:
+    """Countries organised under the groups you defined (``groups=``), and nothing else.
 
+    Only countries that are in a group index (i.e. have GDP) go under a group.
+    Countries without GDP are listed on their own ("No GDP - not in any group").
+    Without groups -- or with only one group holding every country, such as "All
+    countries" -- the countries are one plain list with no headings. A country in
+    several groups goes under the smallest one.
+    """
     everyone = set(countries)
-    # A block holding every country of the run (e.g. "Africa") is not a useful heading.
-    blocks = {k: v for k, v in blocks.items() if not everyone <= set(v) or len(everyone) == 1}
-
-    def home(country, candidates):
-        found = [(len(m), name) for name, m in candidates.items() if country in m]
-        return min(found)[1] if found else None
-
+    no_gdp = set(no_gdp)
+    with_gdp = everyone - no_gdp
+    present = {k: v for k, v in groups.items() if set(v) & everyone}
+    # A group holding every country (e.g. "All") is no use as a heading next to smaller groups,
+    # and the automatic "All countries" group never is.
+    useful = {k: v for k, v in present.items() if not with_gdp <= set(v)} or \
+        {k: v for k, v in present.items() if k != "All countries"}
+    if not useful and not (groups and no_gdp):
+        return [("", list(countries))]
     order: dict[str, list[str]] = {}
     for c in countries:
-        name = home(c, blocks) or home(c, AFRICA_REGIONS)
-        order.setdefault(name or "", []).append(c)
-    if list(order) == [""]:
-        return [("", countries)]
-    named = [(k, v) for k, v in order.items() if k]
-    named.sort(key=lambda kv: kv[0])
+        homes = [(len(m), name) for name, m in useful.items() if c in m]
+        order.setdefault(min(homes)[1] if homes else ("~nogdp" if c in no_gdp else ""), []).append(c)
+    named = [(k, order[k]) for k in useful if k in order]      # in the order you gave the groups
     if "" in order:
-        named.append(("Other countries", order[""]))
+        named.append(("Other countries" if named else "Countries", order[""]))
+    if "~nogdp" in order:
+        named.append(("No GDP - not in any group", order["~nogdp"]))
     return named
 
 
@@ -376,8 +383,8 @@ def _keywords(result) -> str:
             + f"<h2>Every term used ({len(kw):,})</h2><div class=\"panel scroll\">{full}</div>")
 
 
-def build(result, months: int = 12, version: str = "both") -> str:
-    """The dashboard as one HTML string."""
+def build(result, months: int = 12, version: str = "both", title: str | None = None) -> str:
+    """The dashboard as one HTML string. ``title`` replaces the automatic heading."""
     s = result.settings
     m = result.measure
     start, end = s["period"].split("..")
@@ -390,8 +397,9 @@ def build(result, months: int = 12, version: str = "both") -> str:
     countries = sorted({c for d in data.values() for c in d["countries"]} | set(s.get("countries", [])))
     group_names = sorted({g for d in data.values() for g in d["groups"]})
     blocks = {k: list(v) for k, v in (s.get("groups") or {}).items()}
-    sections = _sections(countries, blocks)
-    section_color = {name: _PALETTE[i % len(_PALETTE)] for i, (name, _members) in enumerate(sections) if name}
+    sections = _sections(countries, blocks, s.get("no_gdp") or ())
+    plain = {"", "Countries", "Other countries", "No GDP - not in any group"}
+    section_color = {name: _PALETTE[i % len(_PALETTE)] for i, (name, _members) in enumerate(sections) if name not in plain}
     country_color = {c: section_color.get(name, _OTHER) for name, members in sections for c in members}
     spare = iter(c for c in _PALETTE[::-1] if c not in section_color.values())
     group_color = {}
@@ -399,7 +407,7 @@ def build(result, months: int = 12, version: str = "both") -> str:
         if g in section_color:
             group_color[g] = section_color[g]
         elif len(blocks.get(g, [])) and all(len(blocks.get(g, [])) >= len(m) for m in blocks.values()):
-            group_color[g] = "#102a43"  # the block holding every country, e.g. Africa
+            group_color[g] = "#102a43"  # the block holding every country
         else:
             group_color[g] = next(spare, _OTHER)
     coverage_html, articles = _coverage(result, start, end, sections, country_color)
@@ -492,7 +500,7 @@ def build(result, months: int = 12, version: str = "both") -> str:
         + "".join(f"<tr><td>{_e(k)}</td><td style='text-align:left;white-space:normal'>{_e(v)}</td></tr>"
                   for k, v in (("index", s.get("title", m)), ("period", s["period"]), ("mode", s["mode"]),
                                ("countries", f"{len(s['countries'])}: " + ", ".join(s["countries"])),
-                               ("archive", s.get("archive", "")), ("made", f"{today}, CAPEnewsindex {__version__}")))
+                               ("archive", s.get("archive", "")), ("generated", f"{today}, CAPEnewsindex {__version__}")))
         + "</table></div>"
     )
     if len(result.skipped_files):
@@ -501,7 +509,7 @@ def build(result, months: int = 12, version: str = "both") -> str:
 
     pages = [("overview", "Overview", p_overview)]
     if p_regions:
-        pages.append(("regions", "Regions" if any(g in section_color for g in group_names) else "Groups", p_regions))
+        pages.append(("groups", "Groups", p_regions))
     pages += [("countries", "Countries", p_countries), ("newspapers", "Newspapers", coverage_html),
               ("keywords", "Keywords", _keywords(result)), ("about", "About", about)]
     nav = "".join(f'<a href="#{k}" data-p="{k}">{_e(t)}</a>' for k, t, _h in pages)
@@ -516,12 +524,15 @@ def build(result, months: int = 12, version: str = "both") -> str:
     subtitle = (f"{n} countr{'y' if n == 1 else 'ies'} · {_e(s['period'])} · {_e(s['mode'])}"
                 + (f" · {len(group_names)} groups" if group_names else ""))
 
+    heading = (title or s.get("dashboard_title") or "").strip() or \
+        f"{s.get('title', 'Economic Policy Uncertainty')} dashboard"
+
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{_e(m)} dashboard {_e(s['period'])}</title><style>{_CSS}</style></head>
+<title>{_e(heading)}</title><style>{_CSS}</style></head>
 <body class="v-{versions[0][0]}">
-<header><h1>{_e(s.get('title', 'Economic Policy Uncertainty'))} dashboard</h1>
-<p>{subtitle} · made {today}</p><nav>{nav}</nav></header>
+<header><h1>{_e(heading)}</h1>
+<p>{subtitle} · Generated {today}</p><nav>{nav}</nav></header>
 <div class="bar">{switch}<span class="versionlabel"></span></div>
 <main>{body}</main>
 {_footer()}
@@ -530,9 +541,9 @@ def build(result, months: int = 12, version: str = "both") -> str:
 </body></html>"""
 
 
-def write(result, path, months: int = 12, version: str = "both"):
+def write(result, path, months: int = 12, version: str = "both", title: str | None = None):
     from pathlib import Path
 
     path = Path(path)
-    path.write_text(build(result, months=months, version=version), encoding="utf-8")
+    path.write_text(build(result, months=months, version=version, title=title), encoding="utf-8")
     return path

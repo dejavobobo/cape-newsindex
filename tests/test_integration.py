@@ -7,7 +7,7 @@ from pathlib import Path
 import CAPEnewsindex as ni
 from CAPEnewsindex import dictionary as _dictionary_module
 
-DATA_DICTIONARY = _dictionary_module.DEFAULT_PATH
+DATA_DICTIONARY = _dictionary_module.TEMPLATE_PATH
 DATA_GDP = Path(__file__).resolve().parent / "data" / "gdp_ppp_2015_2025.csv"
 
 
@@ -60,9 +60,7 @@ def test_full_pipeline_runs_end_to_end(tmp_path):
     assert (country["EPU"] >= 0).all()
 
     gdp = ni.aggregate.monthly_gdp(DATA_GDP)
-    groups = {"WestAfrica": ["Nigeria"], "EastAfrica": ["Kenya"]}
-    regions = ni.aggregate.aggregate(
-        country, gdp, groups=groups, history=reloaded, include_africa=True
-    )
-    assert {"WestAfrica", "EastAfrica", "Africa"} <= set(regions["group"])
+    groups = {"WestAfrica": ["Nigeria"], "EastAfrica": ["Kenya"], "Both": ["Nigeria", "Kenya"]}
+    regions = ni.aggregate.aggregate(country, gdp, groups=groups, history=reloaded)
+    assert {"WestAfrica", "EastAfrica", "Both"} == set(regions["group"])
     assert regions["index"].notna().any()

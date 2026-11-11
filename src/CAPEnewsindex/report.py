@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from ._anyindex import any_index, label
+
 
 def _biggest_move(rows: pd.DataFrame) -> tuple[float, str] | tuple[None, None]:
     """Largest absolute month-over-month EPU change within one country's rows.
@@ -32,6 +34,7 @@ def _biggest_move(rows: pd.DataFrame) -> tuple[float, str] | tuple[None, None]:
     return float(diffs.loc[idx]), str(rows.loc[idx, "year_month"])
 
 
+@any_index
 def summarize(result: pd.DataFrame) -> str:
     """Plain-English multi-line summary, one block per country.
 
@@ -82,6 +85,7 @@ def print_period(result: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
     return window
 
 
+@any_index
 def describe(result: pd.DataFrame) -> pd.DataFrame:
     """Per-country min/max/mean/std of EPU, plus the biggest month-over-month move.
 
@@ -111,6 +115,7 @@ def describe(result: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+@any_index
 def top(result: pd.DataFrame, n: int = 5, by: str = "EPU") -> pd.DataFrame:
     """Top-``n`` rows of ``result``, sorted descending by column ``by``."""
     if by not in result.columns:
@@ -131,6 +136,7 @@ def _markdown_table(table: pd.DataFrame) -> str:
 _RESAMPLE_FREQS = {"Q": "Q", "A": "Y", "Y": "Y"}
 
 
+@any_index
 def resample(result: pd.DataFrame, freq: str = "Q") -> pd.DataFrame:
     """Reshape ``result`` from monthly to quarterly or annual averages.
 
@@ -153,6 +159,7 @@ def resample(result: pd.DataFrame, freq: str = "Q") -> pd.DataFrame:
     return grouped.sort_values(["country", "period"]).reset_index(drop=True)
 
 
+@any_index
 def rebase(result: pd.DataFrame, new_history_period: tuple[str, str]) -> pd.DataFrame:
     """Recompute the 100-mean rescaling of ``EPU`` against a different reference period.
 
@@ -183,6 +190,7 @@ def rebase(result: pd.DataFrame, new_history_period: tuple[str, str]) -> pd.Data
     return working
 
 
+@any_index
 def smooth(result: pd.DataFrame, window: int = 3) -> pd.DataFrame:
     """Add an ``EPU_smoothed`` rolling-average column, per country.
 
@@ -215,18 +223,19 @@ def report(result: pd.DataFrame, path: str | Path) -> None:
     suffix = path.suffix.lower()
     summary_text = summarize(result)
     stats = describe(result)
+    name = label(result)
 
     if suffix == ".html":
         summary_html = "\n".join(f"<p>{line}</p>" for line in summary_text.splitlines())
         content = (
             "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>CAPEnewsindex report</title></head>\n"
-            f"<body>\n<h1>CAPEnewsindex EPU report</h1>\n{summary_html}\n"
+            f"<body>\n<h1>CAPEnewsindex {name} report</h1>\n{summary_html}\n"
             f"<h2>Summary statistics</h2>\n{stats.to_html(index=False)}\n</body></html>\n"
         )
     elif suffix in (".md", ".markdown"):
         summary_md = "\n\n".join(summary_text.splitlines())
         content = (
-            f"# CAPEnewsindex EPU report\n\n{summary_md}\n\n## Summary statistics\n\n{_markdown_table(stats)}\n"
+            f"# CAPEnewsindex {name} report\n\n{summary_md}\n\n## Summary statistics\n\n{_markdown_table(stats)}\n"
         )
     else:
         raise ValueError(f"unsupported report extension {suffix!r}; use .html, .md, or .markdown")

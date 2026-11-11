@@ -37,13 +37,14 @@ def test_monthly_gdp_carries_forward_past_end():
     assert "2022-07" not in monthly.index
 
 
-def test_monthly_gdp_applies_default_country_aliases(tmp_path):
+def test_monthly_gdp_renames_only_what_you_ask(tmp_path):
     csv_path = tmp_path / "gdp.csv"
     csv_path.write_text(
         "Country,Year,GDP_Billions_USD\nCabo Verde,2020,10\nBurkina Faso,2020,5\n", encoding="utf-8"
     )
-    monthly = aggregate.monthly_gdp(csv_path)
-    assert set(monthly["country"]) == {"Cape Verde", "Burkina-Faso"}
+    assert set(aggregate.monthly_gdp(csv_path)["country"]) == {"Cabo Verde", "Burkina Faso"}
+    monthly = aggregate.monthly_gdp(csv_path, aliases={"Burkina Faso": "Burkina-Faso"})
+    assert set(monthly["country"]) == {"Cabo Verde", "Burkina-Faso"}
 
 
 def _country_index() -> pd.DataFrame:
@@ -88,28 +89,27 @@ def test_aggregate_matches_hand_computed_weighted_zscore():
     assert region.loc["2020-02", "weight_covered"] == pytest.approx(100.0)
 
 
-def test_aggregate_africa_group_defaults_to_union_of_all_regions():
-    groups = {"TestRegion": ["X", "Y"]}
-    result = aggregate.aggregate(
-        _country_index(), _gdp(), groups, history_start="2020-01", history_end="2020-04"
-    )
-    assert "Africa" in set(result["group"])
-    africa = result[result["group"] == "Africa"].set_index("year_month")
-    region = result[result["group"] == "TestRegion"].set_index("year_month")
-    pd.testing.assert_series_equal(africa["index"], region["index"], check_names=False)
+def test_aggregate_without_groups_is_one_block_of_all_countries():
+    result = aggregate.aggregate(_country_index(), _gdp(), history_start="2020-01", history_end="2020-04")
+    assert set(result["group"]) == {"All countries"}
+    region = aggregate.aggregate(_country_index(), _gdp(), {"TestRegion": ["X", "Y"]},
+                                 history_start="2020-01", history_end="2020-04")
+    assert set(region["group"]) == {"TestRegion"}  # no extra group is ever added
+    pd.testing.assert_series_equal(result.set_index("year_month")["index"],
+                                   region.set_index("year_month")["index"], check_names=False)
 
 
-def test_aggregate_can_disable_africa_group():
-    groups = {"TestRegion": ["X", "Y"]}
-    result = aggregate.aggregate(
-        _country_index(),
-        _gdp(),
-        groups,
-        history_start="2020-01",
-        history_end="2020-04",
-        include_africa=False,
-    )
-    assert "Africa" not in set(result["group"])
+def test_aggregate_scales_on_all_months_without_a_period():
+    a = aggregate.aggregate(_country_index(), _gdp(), {"R": ["X", "Y"]})
+    b = aggregate.aggregate(_country_index(), _gdp(), {"R": ["X", "Y"]}, history_start="2020-01", history_end="2020-04")
+    pd.testing.assert_frame_equal(a, b)
+
+
+def test_aggregate_finds_any_index_column():
+    tpu = _country_index().rename(columns={"EPU": "TPU"})
+    a = aggregate.aggregate(_country_index(), _gdp(), {"R": ["X", "Y"]})
+    b = aggregate.aggregate(tpu, _gdp(), {"R": ["X", "Y"]})
+    pd.testing.assert_frame_equal(a, b)
 
 
 def test_aggregate_accepts_a_table_with_a_custom_weight_column():

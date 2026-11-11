@@ -17,9 +17,10 @@
 
 Add ``history=("2015-01", "2024-12")`` to scale the index on that history
 period and score ``start``..``end`` against it (you get the no-history
-version too), and ``gdp="my_gdp.csv"`` to also get GDP-weighted regional and Africa
-series. Everything else (checks, cores, caching, file problems) is handled
-for you. To start your keyword sheet from the production dictionary, run
+version too), and ``gdp="my_gdp.csv"`` with ``groups={"Block": [countries]}``
+to also get GDP-weighted indices for blocks of countries you define.
+Everything else (checks, cores, caching, file problems) is handled for you.
+To start a keyword sheet from a template, run
 ``ni.keywords_template("my_keywords.xlsx")`` once and edit the file.
 """
 
@@ -130,7 +131,7 @@ def _for_countries(kw: _dictionary.Dictionary, countries: list[str], groups) -> 
     return _dictionary.Dictionary(countries=picked, source=kw.source)
 
 
-def _read_gdp(gdp, end: str) -> pd.DataFrame:
+def _read_gdp(gdp, end: str, names: dict[str, str] | None = None) -> pd.DataFrame:
     table = gdp
     if not isinstance(gdp, pd.DataFrame):
         path = Path(gdp)
@@ -146,7 +147,8 @@ def _read_gdp(gdp, end: str) -> pd.DataFrame:
             "The GDP file needs a country column, a year column and one numeric GDP column "
             f"(e.g. Country, Year, GDP). Columns found: {list(table.columns)}"
         )
-    return _aggregate.monthly_gdp(table, country_col=country, year_col=year, value_col=others[0], end=end)
+    return _aggregate.monthly_gdp(table, country_col=country, year_col=year, value_col=others[0], end=end,
+                                  aliases=dict(names or {}))
 
 
 # ---------------------------------------------------------------------------
@@ -309,12 +311,17 @@ class IndexResult:
     #: What :meth:`save` can write; the default is the first two.
     FILES = ("dashboard", "excel", "csv", "chart", "history")
 
-    def dashboard(self, path: str | Path | None = None, months: int = 12, version: str = "both") -> Path:
-        """Write the HTML dashboard (charts, tables, newspapers, keywords) and return its path."""
+    def dashboard(self, path: str | Path | None = None, months: int = 12, version: str = "both",
+                  title: str | None = None) -> Path:
+        """Write the HTML dashboard (charts, tables, newspapers, keywords) and return its path.
+
+        ``title`` sets the heading, e.g. ``"Africa Economic Policy Uncertainty Index -- October 2026"``;
+        default: the title given to :func:`build_index`, or an automatic one.
+        """
         from .dashboard import write
 
         path = path if path is not None else f"{self.prefix}_dashboard.html"
-        out = write(self, output_folder(path), months=months, version=version)
+        out = write(self, output_folder(path), months=months, version=version, title=title)
         print(f"Dashboard saved: {out.resolve()}")
         return out
 
@@ -323,12 +330,14 @@ class IndexResult:
         folder: str | Path | None = None,
         files: str | list[str] | tuple[str, ...] = ("dashboard", "excel"),
         version: str = "both",
+        title: str | None = None,
     ) -> Path:
         """Save the results to ``folder``.
 
         A relative folder such as ``"my_results"`` is created next to the
         script you are running (in Jupyter: next to the notebook); a full path
-        like ``r"C:\\EPU\\results"`` is used as given.
+        like ``r"C:\\EPU\\results"`` is used as given. ``title`` sets the
+        dashboard heading (default: the title given to :func:`build_index`).
 
         ``files`` -- what to write (default: dashboard + Excel):
           ``"dashboard"`` one HTML page with every chart and table (opens in any browser)
@@ -363,7 +372,7 @@ class IndexResult:
         if "dashboard" in choice:
             from .dashboard import write
 
-            write(self, out / f"{pre}_dashboard.html", version=version)
+            write(self, out / f"{pre}_dashboard.html", version=version, title=title)
             written.append(f"{pre}_dashboard.html")
         if "excel" in choice:
             try:
@@ -413,14 +422,16 @@ def build_index(
     archive: str | Path,
     keywords,
     countries: str | list[str] = "all",
-    start: str = "2015-01",
+    start: str | None = None,
     end: str | None = None,
     *,
     history: tuple[str, str] | str | Path | _index.History | None = None,
     index: list[str] | tuple[str, ...] = ("economic", "policy", "uncertainty"),
     name: str | None = None,
     gdp: str | Path | pd.DataFrame | None = None,
-    groups: dict[str, list[str]] | str | None = None,
+    gdp_names: dict[str, str] | None = None,
+    groups: dict[str, list[str]] | None = None,
+    title: str | None = None,
     output: str | Path | None = None,
     files: str | list[str] | tuple[str, ...] = ("dashboard", "excel"),
     workers: int | None = None,
@@ -436,12 +447,11 @@ def build_index(
                   ``.csv`` sheet (columns country, group, term), a ``.txt``
                   file ([Country] sections, one term per line), a ``.json``
                   file, or a Python dict. ``ni.keywords_template("my_keywords.xlsx")``
-                  (or .csv / .txt / .json) writes the production dictionary
-                  in that format to start from.
+                  (or .csv / .txt / .json) writes a template to start from.
     countries  -- one country (``"Nigeria"``), a list (``["Nigeria", "Ghana"]``),
                   or ``"all"`` (default). Upper/lower case doesn't matter.
-    start, end -- first and last month, ``"YYYY-MM"``. ``end`` defaults to the
-                  latest month found in the archive.
+    start, end -- first and last month, ``"YYYY-MM"``. Left out, they are the
+                  first and the latest month found in the archive.
     index      -- the keyword groups an article must all contain, 2 or more:
                   ``["economic", "policy", "uncertainty"]`` (EPU, the default),
                   ``["trade", "policy", "uncertainty"]`` (TPU),
@@ -458,11 +468,15 @@ def build_index(
     gdp        -- your annual GDP file (CSV or Excel with country, year and GDP
                   columns). Needed for group indices: GDP-weighted indices for
                   blocks of countries (``result.groups``), with or without history.
+    gdp_names  -- renames for countries spelled differently in the GDP file
+                  than in the archive, e.g. ``{"Burkina Faso": "Burkina-Faso"}``.
+                  Nothing is renamed unless you say so.
     groups     -- the blocks to build, any countries you like, e.g.
                   ``{"Euro area": ["Germany", "France"], "Nordics": ["Sweden", "Denmark"]}``.
                   A country may be in several blocks. Default (with ``gdp``):
-                  one block of all countries in the run. ``"africa"``: the five
-                  African regions plus Africa as a whole.
+                  one block of all countries in the run.
+    title      -- the dashboard heading, e.g. "Africa Economic Policy Uncertainty Index".
+                  Default: an automatic one ("EPU index (economic + policy + uncertainty) dashboard").
     output     -- a folder to save the results in straight away (relative
                   folders go next to your script). ``files`` picks what to
                   write there: "dashboard", "excel", "csv", "chart" or "all".
@@ -491,14 +505,14 @@ def build_index(
     groups = None if _empty(groups) else groups
     output = None if _empty(output) else output
     end = None if _empty(end) else end
+    start = None if _empty(start) else start
+    gdp_names = None if _empty(gdp_names) else gdp_names
     countries = "all" if _empty(countries) else countries
     files = ("dashboard", "excel") if _empty(files) else files
     if groups is not None and gdp is None:
         _say(verbose, "Note: groups need a GDP file (gdp=...), so the group index is skipped.")
         groups = None
-    if isinstance(groups, str) and groups.strip().lower() != "africa":
-        raise ValueError('groups must be a dict like {"Euro area": ["Germany", "France"]}, or "africa".')
-    if groups is not None and not isinstance(groups, str) and (
+    if groups is not None and (
         not isinstance(groups, dict) or not groups
         or not all(isinstance(v, (list, tuple)) and v for v in groups.values())
     ):
@@ -518,10 +532,14 @@ def build_index(
     if not archive.is_dir():
         raise FileNotFoundError(f"Archive folder not found: {archive}\nCheck the path (copy it from File Explorer).")
     name = None if _empty(name) else name
-    measure, title, required = _index_spec(index, name)
+    measure, auto_title, required = _index_spec(index, name)
     kw = _dictionary.read(keywords)
     selected = _resolve(archive, countries, kw, required)
     kw = _for_countries(kw, selected, required)
+    if start is None:
+        start = _first_month(archive, selected)
+        if start is None:
+            raise FileNotFoundError(f"No YYYY-MM month folders found for {selected} under {archive}")
     start = _check_month(start, "start")
     if end is None:
         end = _latest_month(archive, selected)
@@ -529,7 +547,7 @@ def build_index(
             raise FileNotFoundError(f"No YYYY-MM month folders found for {selected} under {archive}")
     end = _check_month(end, "end")
     # Read the GDP file now, so a wrong path fails in a second, not after the whole archive is read.
-    weights = _read_gdp(gdp, end) if gdp is not None else None
+    weights = _read_gdp(gdp, end, gdp_names) if gdp is not None else None
     if start > end:
         raise ValueError(f"start ({start}) is after end ({end}).")
 
@@ -636,12 +654,12 @@ def build_index(
 
     group_out = group_nb = None
     blocks: dict[str, list[str]] = {}
+    no_gdp: list[str] = []
     if weights is not None:
-        blocks = _blocks(groups, selected, set(weights["country"]), verbose)
+        blocks, no_gdp = _blocks(groups, selected, set(weights["country"]), verbose)
 
         def _grouped(series, a, b):
-            r = _aggregate.aggregate(series, weights, groups=blocks, history_start=a, history_end=b,
-                                     include_africa=False)
+            r = _aggregate.aggregate(series, weights, groups=blocks, value="EPU", history_start=a, history_end=b)
             return r[(r["year_month"] >= start) & (r["year_month"] <= end)].reset_index(drop=True)
 
         group_nb = _grouped(no_history, start, end)
@@ -661,8 +679,10 @@ def build_index(
         groups_no_history=group_nb if history is not None else None,
         counts=counts.rename(columns={"epu_articles": f"{measure.lower()}_articles"}),
         settings={"archive": str(archive), "countries": selected, "period": f"{start}..{end}", "mode": mode,
-                  "index": measure, "title": title, "keyword_groups": list(required),
-                  "groups": blocks if weights is not None else {}},
+                  "index": measure, "title": auto_title, "keyword_groups": list(required),
+                  "groups": blocks,           # members of each group index (countries with GDP only)
+                  "no_gdp": no_gdp,           # countries without GDP: own index only, in no group
+                  "dashboard_title": None if _empty(title) else str(title).strip()},
         groups=group_out,
         history=fixed,
         keywords=_dictionary.to_table(kw, groups=list(required)).reset_index(drop=True),
@@ -695,13 +715,11 @@ def output_folder(folder: str | Path) -> Path:
     return Path.cwd() / path
 
 
-def _blocks(groups, selected: list[str], with_gdp: set[str], verbose: bool) -> dict[str, list[str]]:
-    """The blocks to aggregate, limited to countries in this run that have GDP."""
+def _blocks(groups, selected: list[str], with_gdp: set[str], verbose: bool):
+    """The blocks to aggregate: your groups, limited to countries in this run that have GDP.
+    Also returns the countries in this run without GDP (they keep their own index only)."""
     if groups is None:
         wanted = {"All countries": list(selected)}
-    elif isinstance(groups, str):  # "africa"
-        wanted = dict(_aggregate.AFRICA_REGIONS)
-        wanted["Africa"] = sorted({c for members in _aggregate.AFRICA_REGIONS.values() for c in members})
     else:
         wanted = {str(k): [str(c) for c in v] for k, v in groups.items()}
     in_run = {c.lower(): c for c in selected}
@@ -719,13 +737,20 @@ def _blocks(groups, selected: list[str], with_gdp: set[str], verbose: bool) -> d
                 kept.append(folder)
         if kept:
             blocks[name] = kept
+    no_gdp |= {c for c in selected if c not in with_gdp}
     if no_gdp:
         _say(verbose, f"  Note: no GDP for {', '.join(sorted(no_gdp))} -- left out of the group index.")
-    if not_in_run and not isinstance(groups, str):
+        unused = sorted(set(with_gdp) - set(selected))
+        hints = {c: difflib.get_close_matches(c, unused, n=1, cutoff=0.6) for c in sorted(no_gdp)}
+        hints = {c: m[0] for c, m in hints.items() if m}
+        if hints:
+            pairs = ", ".join(f'"{m}": "{c}"' for c, m in hints.items())
+            _say(verbose, f"  The GDP file may spell them differently -- if so, add gdp_names={{{pairs}}}.")
+    if not_in_run:
         _say(verbose, f"  Note: not in this run, so left out of the groups: {', '.join(sorted(not_in_run))}.")
     if not blocks:
         raise ValueError("None of the group countries are in this run with GDP data, so no group index can be built.")
-    return blocks
+    return blocks, sorted(no_gdp)
 
 
 def input_path(value):
@@ -737,6 +762,17 @@ def input_path(value):
         return path
     beside_script = output_folder(path)
     return beside_script if beside_script.exists() else path
+
+
+def _first_month(archive: Path, countries: list[str]) -> str | None:
+    first = None
+    for c in countries:
+        for site in (archive / c).iterdir():
+            if site.is_dir():
+                months = [m.name for m in site.iterdir() if m.is_dir() and _MONTH.match(m.name)]
+                if months and (first is None or min(months) < first):
+                    first = min(months)
+    return first
 
 
 def _latest_month(archive: Path, countries: list[str]) -> str | None:

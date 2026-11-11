@@ -163,7 +163,7 @@ def test_save_gsheet_uses_open_by_url_for_a_url():
     assert client.opened_by_url == "https://docs.google.com/spreadsheets/d/abc"
 
 
-# --- save_all / save_versioned / autosave --------------------------------------
+# --- save_all / save_versioned --------------------------------------
 
 def test_save_all_writes_every_name_and_format(tmp_path):
     written = ni.save_all({"nigeria": RESULT, "kenya": RESULT}, tmp_path, formats=("csv", "json"))
@@ -177,61 +177,3 @@ def test_save_versioned_creates_a_timestamped_file(tmp_path):
     assert path.exists()
     assert path.name.startswith("country_index_")
     assert path.suffix == ".csv"
-
-
-def test_autosave_with_dict_project(tmp_path):
-    path = ni.autosave(RESULT, {"folder": str(tmp_path), "format": "csv", "name": "myresult"})
-    assert path == tmp_path / "myresult.csv"
-    assert path.exists()
-
-
-class _FakeProject:
-    folder = None
-    format = "json"
-    name = "duck_typed"
-
-
-def test_autosave_with_duck_typed_project(tmp_path):
-    project = _FakeProject()
-    project.folder = str(tmp_path)
-    path = ni.autosave(RESULT, project)
-    assert path == tmp_path / "duck_typed.json"
-    assert path.exists()
-
-
-# --- save_report: docx / pdf -----------------------------------------------------
-
-def test_save_report_docx_is_created_and_nonempty(tmp_path):
-    pytest.importorskip("docx")
-    path = tmp_path / "report.docx"
-    ni.save_report(RESULT, path)
-    assert path.exists()
-    assert path.stat().st_size > 0
-
-    import docx as docx_module
-
-    document = docx_module.Document(str(path))
-    assert len(document.paragraphs) > 0
-    assert len(document.tables) == 1
-
-
-def test_save_report_pdf_is_created_and_nonempty(tmp_path):
-    pytest.importorskip("fpdf")
-    path = tmp_path / "report.pdf"
-    ni.save_report(RESULT, path)
-    assert path.exists()
-    assert path.stat().st_size > 0
-    with open(path, "rb") as handle:
-        assert handle.read(4) == b"%PDF"
-
-
-def test_save_report_unsupported_extension_raises(tmp_path):
-    with pytest.raises(ValueError, match=r"unsupported save_report extension"):
-        ni.save_report(RESULT, tmp_path / "report.txt")
-
-
-def test_save_report_format_overrides_extension(tmp_path):
-    path = tmp_path / "report.out"
-    ni.save_report(RESULT, path, format="html")
-    assert path.exists()
-    assert "<html>" in path.read_text(encoding="utf-8")
