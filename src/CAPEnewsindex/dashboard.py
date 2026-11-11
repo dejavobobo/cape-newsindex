@@ -45,6 +45,10 @@ th { color:var(--muted); font-weight:600; background:#fafbfc; position:sticky; t
 .note { color:var(--muted); font-size:13px; }
 details summary { cursor:pointer; color:var(--accent); }
 svg { width:100%; height:auto; }
+footer { border-top:1px solid var(--line); background:#fff; padding:18px 32px; display:flex; align-items:center;
+         justify-content:center; gap:14px; color:var(--muted); font-size:13px; }
+footer img { height:44px; width:auto; }
+footer b { color:var(--ink); }
 .scroll { max-height:420px; overflow:auto; }
 """
 
@@ -52,6 +56,31 @@ _JS = """
 function show(v){document.querySelectorAll('.version').forEach(e=>e.classList.toggle('on',e.id===v));
 document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));}
 """
+
+
+#: Credit shown at the bottom of every dashboard.
+CREDIT = "CAPE Economic Research and Consulting"
+_LOGO_FILES = ("logo.svg", "logo.png", "logo.jpg", "logo.jpeg")
+
+
+def _logo_tag() -> str:
+    """The CAPE logo as an inline image, if a logo.* file is in the package data folder."""
+    import base64
+    from pathlib import Path
+
+    folder = Path(__file__).resolve().parent / "data"
+    mime = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    for name in _LOGO_FILES:
+        path = folder / name
+        if path.exists():
+            data = base64.b64encode(path.read_bytes()).decode("ascii")
+            return f'<img src="data:{mime[path.suffix.lower()]};base64,{data}" alt="{html.escape(CREDIT)} logo">'
+    return ""
+
+
+def _footer() -> str:
+    return (f"<footer>{_logo_tag()}<span>Made with <b>CAPEnewsindex</b> {__version__} · "
+            f"<b>{html.escape(CREDIT)}</b></span></footer>")
 
 
 def _e(text) -> str:
@@ -270,7 +299,9 @@ def build(result, months: int = 12, version: str = "both") -> str:
 {skipped}
 <h2>How to read this</h2>
 <div class="panel note">{method}</div>
-</main></body></html>"""
+</main>
+{_footer()}
+</body></html>"""
 
 
 def write(result, path, months: int = 12, version: str = "both"):
