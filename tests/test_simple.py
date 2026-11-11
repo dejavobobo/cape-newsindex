@@ -208,7 +208,7 @@ def test_history_run_also_gives_the_no_history_version(archive, tmp_path, capsys
     kept = result.save(tmp_path / "keep", files=["dashboard", "history"])
     assert sorted(f.name for f in kept.iterdir()) == ["epu_dashboard.html", "history.json"]
     page = (out / "epu_dashboard.html").read_text(encoding="utf-8")
-    assert "WITH HISTORY".lower() in page.lower() and "Keywords used" in page and "<svg" in page
+    assert "WITH HISTORY".lower() in page.lower() and "Keywords used" in page and 'data-line="c|' in page
     csvs = result.save(tmp_path / "csv", files="csv", version="no history")
     names = {f.name for f in csvs.iterdir()}
     assert "epu_no_history.csv" in names and "epu_history.csv" not in names

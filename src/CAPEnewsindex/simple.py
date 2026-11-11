@@ -528,6 +528,8 @@ def build_index(
         if end is None:
             raise FileNotFoundError(f"No YYYY-MM month folders found for {selected} under {archive}")
     end = _check_month(end, "end")
+    # Read the GDP file now, so a wrong path fails in a second, not after the whole archive is read.
+    weights = _read_gdp(gdp, end) if gdp is not None else None
     if start > end:
         raise ValueError(f"start ({start}) is after end ({end}).")
 
@@ -624,14 +626,17 @@ def build_index(
         _say(verbose, f"  {name:<24} {c['site'].nunique():>3} newspapers  {int(c['all_articles'].sum()):>10,} articles"
                       f"  {int(c['epu_articles'].sum()):>8,} {measure}  {len(e):>4} months")
 
+    if skipped:
+        _say(verbose, f"  Note: {len(skipped)} file(s) could not be read and were skipped (see result.skipped_files).")
     no_index = [c for c in selected if c not in set(country["country"])]
     if no_index:
         _say(verbose, f"  Note: no index for {', '.join(no_index)} -- no newspaper had 2+ months with a "
-                      f"changing {measure} share in the scaling period.")
+                      f"changing {measure} share in the scaling period"
+                      + (" (some of their files could not be read: see result.skipped_files)." if skipped else "."))
 
     group_out = group_nb = None
-    if gdp is not None:
-        weights = _read_gdp(gdp, end)
+    blocks: dict[str, list[str]] = {}
+    if weights is not None:
         blocks = _blocks(groups, selected, set(weights["country"]), verbose)
 
         def _grouped(series, a, b):
@@ -642,8 +647,6 @@ def build_index(
         group_nb = _grouped(no_history, start, end)
         group_out = group_nb if fixed is None else _grouped(scored_all, fixed.start, fixed.end)
 
-    if skipped:
-        _say(verbose, f"  Note: {len(skipped)} file(s) could not be read and were skipped (see result.skipped_files).")
     both = " (with and without history)" if history is not None else ""
     hint = "  Next: result.show(), result.plot()" + ("" if output is not None else ', result.save("folder")')
     _say(verbose, f"Done in {time.perf_counter() - t0:,.1f}s{both}.{hint}")
@@ -658,7 +661,8 @@ def build_index(
         groups_no_history=group_nb if history is not None else None,
         counts=counts.rename(columns={"epu_articles": f"{measure.lower()}_articles"}),
         settings={"archive": str(archive), "countries": selected, "period": f"{start}..{end}", "mode": mode,
-                  "index": measure, "title": title, "keyword_groups": list(required)},
+                  "index": measure, "title": title, "keyword_groups": list(required),
+                  "groups": blocks if weights is not None else {}},
         groups=group_out,
         history=fixed,
         keywords=_dictionary.to_table(kw, groups=list(required)).reset_index(drop=True),
