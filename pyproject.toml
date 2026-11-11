@@ -4,12 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "CAPEnewsindex"
-version = "1.0.1"
+version = "1.0.2"
 description = "Build news-based Economic Policy Uncertainty (EPU) indices from newspaper archives."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Shakir Adeyemi Tewogbade" }]
+authors = [
+    { name = "Shakir Adeyemi Tewogbade" },
+    { name = "Ayodeji Badmus" },
+    { name = "Akande Omotayo Emmanuel" },
+    { name = "Honey Adenike Adeleke" },
+    { name = "Kafayat Alobaloke" },
+    { name = "Taiwo Oyedamola" },
+    { name = "Pelumi Oluwategbe" },
+    { name = "Samuel Monday" },
+    { name = "Laniran Temitope" },
+]
 keywords = ["economic policy uncertainty", "epu", "news analytics", "africa"]
 classifiers = [
     "Development Status :: 3 - Alpha",
