@@ -131,24 +131,17 @@ def _for_countries(kw: _dictionary.Dictionary, countries: list[str], groups) -> 
     return _dictionary.Dictionary(countries=picked, source=kw.source)
 
 
-def _read_gdp(gdp, end: str, names: dict[str, str] | None = None) -> pd.DataFrame:
-    table = gdp
-    if not isinstance(gdp, pd.DataFrame):
-        path = Path(gdp)
-        if not path.exists():
-            raise FileNotFoundError(f"GDP file not found: {path}")
-        table = pd.read_excel(path) if path.suffix.lower() in (".xlsx", ".xls") else pd.read_csv(path)
-    cols = {c.lower(): c for c in table.columns}
-    country = next((cols[c] for c in cols if "country" in c), None)
-    year = next((cols[c] for c in cols if c in ("year", "yr") or "year" in c), None)
-    others = [c for c in table.columns if c not in (country, year) and pd.api.types.is_numeric_dtype(table[c])]
-    if country is None or year is None or not others:
-        raise ValueError(
-            "The GDP file needs a country column, a year column and one numeric GDP column "
-            f"(e.g. Country, Year, GDP). Columns found: {list(table.columns)}"
-        )
-    return _aggregate.monthly_gdp(table, country_col=country, year_col=year, value_col=others[0], end=end,
-                                  aliases=dict(names or {}))
+def _read_gdp(gdp, end: str, names: dict[str, str] | None = None, frequency: str = "auto") -> pd.DataFrame:
+    """Annual, quarterly or monthly GDP -> one value per country and month
+    (``attrs["frequency"]`` says which it was)."""
+    return _aggregate.monthly_gdp(gdp, end=end, aliases=dict(names or {}), frequency=frequency)
+
+
+_GDP_HOW = {
+    "annual": "each year's value at January, log-linear to the next year",
+    "quarterly": "each quarter's value at its first month, log-linear to the next quarter",
+    "monthly": "used as is (missing months filled log-linearly)",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +423,7 @@ def build_index(
     name: str | None = None,
     gdp: str | Path | pd.DataFrame | None = None,
     gdp_names: dict[str, str] | None = None,
+    gdp_frequency: str = "auto",
     groups: dict[str, list[str]] | None = None,
     title: str | None = None,
     output: str | Path | None = None,
@@ -465,9 +459,15 @@ def build_index(
                   ``("2015-01", "2024-12")``, to scale on that period and score
                   ``start``..``end`` against it -- you then get both versions;
                   or reuse a ``history.json`` saved with ``files=[..., "history"]``.
-    gdp        -- your annual GDP file (CSV or Excel with country, year and GDP
-                  columns). Needed for group indices: GDP-weighted indices for
+    gdp        -- your GDP file (CSV or Excel) or DataFrame: annual (2015),
+                  quarterly (2015Q1) or monthly (201501, 2015-01) -- one country,
+                  period and GDP column, or a period column plus one column per
+                  country. Needed for group indices: GDP-weighted indices for
                   blocks of countries (``result.groups``), with or without history.
+    gdp_frequency -- ``"auto"`` (default: read from the periods) or
+                  ``"annual"``, ``"quarterly"``, ``"monthly"`` to state it. The
+                  run prints the frequency used; it is also in
+                  ``result.settings["gdp_frequency"]``.
     gdp_names  -- renames for countries spelled differently in the GDP file
                   than in the archive, e.g. ``{"Burkina Faso": "Burkina-Faso"}``.
                   Nothing is renamed unless you say so.
@@ -547,7 +547,12 @@ def build_index(
             raise FileNotFoundError(f"No YYYY-MM month folders found for {selected} under {archive}")
     end = _check_month(end, "end")
     # Read the GDP file now, so a wrong path fails in a second, not after the whole archive is read.
-    weights = _read_gdp(gdp, end, gdp_names) if gdp is not None else None
+    weights = _read_gdp(gdp, end, gdp_names, gdp_frequency) if gdp is not None else None
+    gdp_info = None
+    if weights is not None:
+        first, last = weights.attrs["periods"]
+        gdp_info = {"frequency": weights.attrs["frequency"], "first": str(first), "last": str(last),
+                    "countries": weights.attrs["countries"]}
     if start > end:
         raise ValueError(f"start ({start}) is after end ({end}).")
 
@@ -583,6 +588,10 @@ def build_index(
         sizes = " / ".join(f"{len(e.terms(g)):>4}" for g in required)
         examples = " | ".join(", ".join(e.terms(g)[:2]) for g in required)
         _say(verbose, f"  {c:<24} {sizes}   e.g. {examples}")
+    if gdp_info is not None:
+        _say(verbose, f"GDP: {gdp_info['frequency']}, {gdp_info['first']}..{gdp_info['last']}, "
+                      f"{gdp_info['countries']} countries -- {_GDP_HOW[gdp_info['frequency']]}; "
+                      f"last value held flat to {end}")
     _say(verbose, "Reading articles ...")
 
     # --- read and count -----------------------------------------------------
@@ -682,6 +691,8 @@ def build_index(
                   "index": measure, "title": auto_title, "keyword_groups": list(required),
                   "groups": blocks,           # members of each group index (countries with GDP only)
                   "no_gdp": no_gdp,           # countries without GDP: own index only, in no group
+                  "gdp_frequency": None if gdp_info is None else gdp_info["frequency"],
+                  "gdp_periods": None if gdp_info is None else f"{gdp_info['first']}..{gdp_info['last']}",
                   "dashboard_title": None if _empty(title) else str(title).strip()},
         groups=group_out,
         history=fixed,

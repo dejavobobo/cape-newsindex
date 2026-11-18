@@ -30,37 +30,44 @@ def equal(month_rows: pd.DataFrame, group_name: str) -> pd.Series:
 
 
 def gdp(path: str | Path | pd.DataFrame, **kwargs) -> pd.DataFrame:
-    """Thin wrapper around :func:`CAPEnewsindex.aggregate.monthly_gdp`."""
+    """Thin wrapper around :func:`CAPEnewsindex.aggregate.monthly_gdp`
+    (annual, quarterly or monthly GDP; pass ``frequency=`` to state it)."""
     return _aggregate.monthly_gdp(path, **kwargs)
 
 
 def population(
     path: str | Path | pd.DataFrame,
     *,
-    country_col: str = "Country",
-    year_col: str = "Year",
-    value_col: str = "Population",
+    country_col: str | None = None,
+    year_col: str | None = None,
+    value_col: str | None = None,
+    frequency: str = "auto",
     scale: float = 1.0,
     end: str | None = None,
     aliases: dict[str, str] | None = None,
+    period_col: str | None = None,
 ) -> pd.DataFrame:
-    """Interpolate annual population (or any other annual-by-country metric)
-    to monthly values, producing a ``population`` column.
+    """Turn annual, quarterly or monthly population (or any other by-country
+    figure) into monthly values, producing a ``population`` column.
 
-    Same interpolation behaviour as :func:`CAPEnewsindex.aggregate.monthly_gdp`
-    (log-linear through each pair of annual figures, flat-carried forward
-    after the last one) -- just a different output column name and default
-    source-column names suited to a population file.
+    Same layouts, period labels and interpolation as
+    :func:`CAPEnewsindex.aggregate.monthly_gdp` -- just a different output
+    column. Without ``value_col``, the numeric column whose name contains
+    "pop" is used (else the first numeric column).
     """
-    return _aggregate._interpolate_annual_to_monthly(
+    if year_col is not None and period_col is not None and year_col != period_col:
+        raise ValueError("Give period_col or year_col, not both.")
+    return _aggregate._to_monthly(
         path,
         country_col=country_col,
-        year_col=year_col,
+        period_col=period_col or year_col,
         value_col=value_col,
         scale=scale,
         end=end,
         aliases=aliases,
         output_col="population",
+        frequency=frequency,
+        prefer="pop",
     )
 
 
