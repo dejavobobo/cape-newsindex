@@ -10,7 +10,7 @@ import CAPEnewsindex as ni
 from test_fastscan import _build_messy_archive
 
 KEYWORDS = ni.dictionary.TEMPLATE_PATH
-GDP = Path(__file__).resolve().parent / "data" / "gdp_ppp_2015_2025.csv"
+GDP = Path(__file__).resolve().parent.parent / "data" / "gdp_ppp_2015_2025.csv"
 TWO = ["Nigeria", "Morocco"]
 
 

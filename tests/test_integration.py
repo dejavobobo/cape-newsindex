@@ -8,7 +8,7 @@ import CAPEnewsindex as ni
 from CAPEnewsindex import dictionary as _dictionary_module
 
 DATA_DICTIONARY = _dictionary_module.TEMPLATE_PATH
-DATA_GDP = Path(__file__).resolve().parent / "data" / "gdp_ppp_2015_2025.csv"
+DATA_GDP = Path(__file__).resolve().parent.parent / "data" / "gdp_ppp_2015_2025.csv"
 
 
 def _write(path: Path, rows: list[str]) -> None:
