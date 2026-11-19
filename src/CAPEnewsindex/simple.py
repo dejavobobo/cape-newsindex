@@ -35,6 +35,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import _rules
 from . import aggregate as _aggregate
 from . import dictionary as _dictionary
 from . import index as _index
@@ -359,29 +360,33 @@ class IndexResult:
                 tables[f"groups_{key}"] = group_table
         tables["newspaper_counts"] = self.counts
         tables["keywords_used"] = self.keywords
+        tables["settings"] = self._settings_table()
         if len(self.skipped_files):
             tables["skipped_files"] = self.skipped_files
 
         if "dashboard" in choice:
             from .dashboard import write
 
-            write(self, out / f"{pre}_dashboard.html", version=version, title=title)
-            written.append(f"{pre}_dashboard.html")
+            path = _writable(out / f"{pre}_dashboard.html")
+            write(self, path, version=version, title=title)
+            written.append(path.name)
         if "excel" in choice:
             try:
-                with pd.ExcelWriter(out / f"{pre}_results.xlsx") as xl:
+                path = _writable(out / f"{pre}_results.xlsx")
+                with pd.ExcelWriter(path) as xl:
                     for name, table in tables.items():
                         wide = name.startswith(f"{pre}_") and not name.endswith("_long")
                         table.to_excel(xl, sheet_name=name[:31], index=wide)
-                written.append(f"{pre}_results.xlsx")
+                written.append(path.name)
             except ImportError:
                 print("Excel needs openpyxl (pip install openpyxl); writing CSV files instead.")
                 choice.append("csv")
         if "csv" in choice:
             for name, table in tables.items():
                 wide = name.startswith(f"{pre}_") and not name.endswith("_long")
-                table.to_csv(out / f"{name}.csv", index=wide, encoding="utf-8-sig")
-                written.append(f"{name}.csv")
+                path = _writable(out / f"{name}.csv")
+                table.to_csv(path, index=wide, encoding="utf-8-sig")
+                written.append(path.name)
         if "chart" in choice:
             try:
                 import matplotlib
@@ -389,23 +394,53 @@ class IndexResult:
                 matplotlib.use("Agg", force=False)
                 import matplotlib.pyplot as plt
 
-                plt.close(self.plot(version, out / f"{pre}_chart.png"))
-                written.append(f"{pre}_chart.png")
+                path = _writable(out / f"{pre}_chart.png")
+                plt.close(self.plot(version, path))
+                written.append(path.name)
             except ImportError:
                 print("The chart needs matplotlib (pip install CAPEnewsindex[plot]).")
         if "history" in choice and self.history is not None:
-            self.history.save(out / "history.json")
-            written.append("history.json")
+            path = _writable(out / "history.json")
+            self.history.save(path)
+            written.append(path.name)
         print(f"Saved to {out.resolve()}:")
         for name in dict.fromkeys(written):
             print(f"  {name}")
         return out
+
+    def _settings_table(self) -> pd.DataFrame:
+        """The run's settings as two columns -- so anyone comparing results sees how they were made."""
+        s = self.settings
+        rows = [("CAPEnewsindex version", __version__), ("index", s.get("index", "")),
+                ("keyword groups", ", ".join(s.get("keyword_groups", []))), ("period", s.get("period", "")),
+                ("mode", s.get("mode", "")), ("rules", s.get("rules_detail") or s.get("rules") or "legacy"),
+                ("GDP", f"{s['gdp_frequency']}, {s.get('gdp_periods', '')}" if s.get("gdp_frequency") else "none"),
+                ("countries", ", ".join(s.get("countries", []))), ("archive", s.get("archive", ""))]
+        rows += [(f"group: {g}", ", ".join(members)) for g, members in (s.get("groups") or {}).items()]
+        return pd.DataFrame(rows, columns=["setting", "value"])
 
     def __repr__(self) -> str:
         n = self.country["country"].nunique() if len(self.country) else 0
         versions = " + no history" if self.history is not None else ""
         return (f"<IndexResult: {n} countr{'y' if n == 1 else 'ies'}, {self.settings['period']}, "
                 f"{self.settings['mode']}{versions} -- use .show(), .plot(), .save(folder)>")
+
+
+def _writable(path: Path) -> Path:
+    """``path``, or ``name (1).ext``, ``name (2).ext`` ... when ``path`` is open in another
+    program (Excel, a browser) and can't be overwritten -- so a finished run is never lost."""
+    for i in range(0, 100):
+        candidate = path if i == 0 else path.with_name(f"{path.stem} ({i}){path.suffix}")
+        try:
+            with open(candidate, "ab"):
+                pass
+        except PermissionError:
+            continue
+        if candidate != path:
+            print(f"  Note: {path.name} is open in another program, so this run was saved as "
+                  f"{candidate.name} (close the file to overwrite it next time).")
+        return candidate
+    raise PermissionError(f"{path} is open in another program; close it and save again.")
 
 
 # ---------------------------------------------------------------------------
@@ -431,6 +466,7 @@ def build_index(
     workers: int | None = None,
     cache: bool = True,
     verbose: bool = True,
+    rules: str = "cape",
 ) -> IndexResult:
     """Build an EPU-type index (EPU, TPU, PU, or any 2+ keyword groups) from a
     scraped-article archive in one call.
@@ -482,11 +518,17 @@ def build_index(
                   write there: "dashboard", "excel", "csv", "chart" or "all".
     workers    -- CPU cores to use; default all. ``cache`` (default on) keeps
                   each file's results so re-runs only read new files.
+    rules      -- ``"cape"`` (default): exactly the rules of the CAPE EPU index, so
+                  the same archive, keywords and GDP give the same numbers;
+                  ``"legacy"``: the library's results before 18 Nov 2026. The run
+                  prints the rules; they are in ``result.settings["rules"]``.
+                  See the README ("Rules") and :mod:`CAPEnewsindex._rules`.
 
     Files that can't be read are skipped and listed in
     ``result.skipped_files`` instead of stopping the run.
     """
     t0 = time.perf_counter()
+    rules = _rules.check(rules)
 
     # Anything left empty is simply skipped.
     def _empty(v) -> bool:
@@ -581,6 +623,7 @@ def build_index(
         f"history {fixed.start}..{fixed.end} (saved)" if fixed is not None else f"history {windows[1][0]}..{windows[1][1]}")
     _say(verbose, f"CAPEnewsindex {__version__} | {measure} | {len(selected)} countr{'y' if len(selected) == 1 else 'ies'} | "
                   f"{start}..{end} | {mode}")
+    _say(verbose, f"Rules: {_rules.describe(rules)}")
     source = f" from {Path(kw.source).name}" if kw.source else ""
     _say(verbose, f"Keywords{source} ({' / '.join(required)}):")
     for c in selected:
@@ -623,6 +666,7 @@ def build_index(
     by_folder = count_archive_fast(
         archive, kw, countries=selected, windows=read_windows, workers=workers,
         cache=cache, skipped=skipped, by_folder=True, file_progress=file_progress, groups=required,
+        rules=rules,
     )
     # One scan, several views -- each identical to a run that read only its own months.
     counts = collapse_folders(by_folder)
@@ -667,12 +711,20 @@ def build_index(
     if weights is not None:
         blocks, no_gdp = _blocks(groups, selected, set(weights["country"]), verbose)
 
-        def _grouped(series, a, b):
-            r = _aggregate.aggregate(series, weights, groups=blocks, value="EPU", history_start=a, history_end=b)
+        missing_rule = "neutral" if rules == "cape" else "drop"
+
+        def _grouped(series, a, b, w):
+            r = _aggregate.aggregate(series, w, groups=blocks, value="EPU", history_start=a, history_end=b,
+                                     missing=missing_rule)
             return r[(r["year_month"] >= start) & (r["year_month"] <= end)].reset_index(drop=True)
 
-        group_nb = _grouped(no_history, start, end)
-        group_out = group_nb if fixed is None else _grouped(scored_all, fixed.start, fixed.end)
+        group_nb = _grouped(no_history, start, end, weights)
+        if fixed is not None:
+            # CAPE index: after the history the GDP weights stay at the history's last month
+            w_hist = _aggregate.freeze_weights_after(weights, fixed.end) if rules == "cape" else weights
+            group_out = _grouped(scored_all, fixed.start, fixed.end, w_hist)
+        else:
+            group_out = group_nb
 
     both = " (with and without history)" if history is not None else ""
     hint = "  Next: result.show(), result.plot()" + ("" if output is not None else ', result.save("folder")')
@@ -691,6 +743,8 @@ def build_index(
                   "index": measure, "title": auto_title, "keyword_groups": list(required),
                   "groups": blocks,           # members of each group index (countries with GDP only)
                   "no_gdp": no_gdp,           # countries without GDP: own index only, in no group
+                  "rules": rules,
+                  "rules_detail": _rules.describe(rules),
                   "gdp_frequency": None if gdp_info is None else gdp_info["frequency"],
                   "gdp_periods": None if gdp_info is None else f"{gdp_info['first']}..{gdp_info['last']}",
                   "dashboard_title": None if _empty(title) else str(title).strip()},

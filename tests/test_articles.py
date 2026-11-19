@@ -25,13 +25,30 @@ def test_read_articles_walks_country_newspaper_month_layout_and_unescapes_html(t
         ['Daily Nation,2026-03-02,Economy grows,https://example.com/b,More text'],
     )
 
-    articles = read_articles(tmp_path)
+    articles = read_articles(tmp_path, rules="legacy")
 
     assert len(articles) == 2
     assert set(articles["country"]) == {"Nigeria", "Kenya"}
     assert set(articles["year_month"]) == {"2026-03"}
     row = articles[articles["country"] == "Nigeria"].iloc[0]
     assert row["title"] == "Government’s policy shift"
+
+    cape = read_articles(tmp_path)   # default rules="cape": text as stored, as the CAPE index
+    assert cape[cape["country"] == "Nigeria"].iloc[0]["title"] == "Government&#8217;s policy shift"
+
+
+def test_cape_rules_take_newspaper_and_month_from_the_folders(tmp_path):
+    _write_articles(
+        tmp_path / "Ivory Coast" / "Cap Sud" / "2026-03" / "articles_Cap Sud_2026-03.csv.gz",
+        ['Cap Sud Abidjan Sud,2026-04-01,Headline,https://example.com/a,Text',
+         ',,No site or date,https://example.com/b,Text'],
+    )
+    cape = read_articles(tmp_path)
+    assert list(cape["site"].astype(str)) == ["Cap Sud", "Cap Sud"]
+    assert list(cape["year_month"].astype(str)) == ["2026-03", "2026-03"]
+    legacy = read_articles(tmp_path, rules="legacy")
+    assert legacy["site"].astype(str).iloc[0] == "Cap Sud Abidjan Sud"
+    assert legacy["year_month"].astype(str).iloc[0] == "2026-04"
 
 
 def test_read_articles_returns_categorical_country_site_year_month(tmp_path):

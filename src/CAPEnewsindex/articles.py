@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import _rules
+
 _REQUIRED_COLUMNS = ("site", "date", "title", "url", "text")
 
 
@@ -57,14 +59,20 @@ def _read_one(file: Path, country: str, encoding: str) -> pd.DataFrame:
     if missing:
         raise ValueError(f"{file}: missing column(s) {missing}")
     frame["country"] = country
+    frame["_folder_site"] = file.parent.parent.name   # <country>/<newspaper>/<YYYY-MM>/file
+    frame["_folder_month"] = file.parent.name
     return frame
 
 
-def _finalize(frame: pd.DataFrame) -> pd.DataFrame:
+def _finalize(frame: pd.DataFrame, rules: str = _rules.DEFAULT) -> pd.DataFrame:
     frame = frame.copy()
-    frame["title"] = frame["title"].map(_unescape)
-    frame["text"] = frame["text"].map(_unescape)
-    frame["year_month"] = frame["date"].astype(str).str.slice(0, 7)
+    if _rules.check(rules) == "cape":   # as the CAPE index: text as stored, folders name newspaper and month
+        frame["site"] = frame["_folder_site"]
+        frame["year_month"] = frame["_folder_month"]
+    else:
+        frame["title"] = frame["title"].map(_unescape)
+        frame["text"] = frame["text"].map(_unescape)
+        frame["year_month"] = frame["date"].astype(str).str.slice(0, 7)
     frame = frame[["country", "site", "year_month", "date", "title", "url", "text"]]
     for col in ("country", "site", "year_month"):
         frame[col] = frame[col].astype("category")
@@ -72,7 +80,8 @@ def _finalize(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def read_articles(
-    root: str | Path, *, countries: list[str] | str | None = None, encoding: str = "utf-8"
+    root: str | Path, *, countries: list[str] | str | None = None, encoding: str = "utf-8",
+    rules: str = _rules.DEFAULT,
 ) -> pd.DataFrame:
     """Read every ``articles_*.csv`` / ``articles_*.csv.gz`` file under
     ``root`` into one table, adding ``country`` (the top-level folder name)
@@ -86,8 +95,11 @@ def read_articles(
     casing). An unmatched name raises :class:`ValueError` listing the
     folders that were found, to catch typos early.
 
-    Article titles and text are HTML-unescaped (the scraper stores raw HTML
-    entities such as ``&#8217;``) before they reach :mod:`CAPEnewsindex.match`.
+    With ``rules="cape"`` (the default, as the CAPE EPU index) ``site`` is the
+    newspaper folder, ``year_month`` the month folder, and titles and text are
+    kept as stored. With ``rules="legacy"`` ``site`` and ``year_month`` come from
+    the ``site`` and ``date`` columns and titles and text are HTML-unescaped
+    (``&#8217;`` -> ``'``) -- see :mod:`CAPEnewsindex._rules`.
     ``country``/``site``/``year_month`` are returned as categorical columns
     (each distinct value stored once, not once per row) to keep the
     combined table's memory footprint down.
@@ -106,11 +118,13 @@ def read_articles(
         files.extend(country_root.glob("**/*.csv.gz"))
         files.extend(country_root.glob("**/*.csv"))
     files = sorted(set(files))
+    if _rules.check(rules) == "cape":   # newspapers in name order (case ignored), as the CAPE index
+        files.sort(key=lambda f: (f.relative_to(root).parts[0].lower(), f.parent.parent.name.lower(), str(f).lower()))
     if not files:
         raise FileNotFoundError(f"no article files found under {root}")
 
     frames = [_read_one(file, file.relative_to(root).parts[0], encoding) for file in files]
-    return _finalize(pd.concat(frames, ignore_index=True))
+    return _finalize(pd.concat(frames, ignore_index=True), rules)
 
 
 def iter_country_month_batches(
@@ -121,6 +135,7 @@ def iter_country_month_batches(
     start: str | None = None,
     end: str | None = None,
     windows: list[tuple[str, str]] | None = None,
+    rules: str = _rules.DEFAULT,
 ) -> Iterator[pd.DataFrame]:
     """Yield one small table per (country, year-month folder) under ``root``,
     instead of materializing the whole requested scope in memory at once.
@@ -133,9 +148,9 @@ def iter_country_month_batches(
     overall scope spans. Unlike :func:`read_articles`, this requires the
     exact documented two-level ``<newspaper>/<year-month>/`` nesting under
     each country folder, since the year-month *folder* name is what
-    batches are grouped by; each row's own ``year_month`` column is still
-    derived from its actual ``date`` value, exactly as in
-    :func:`read_articles` -- the folder name only decides batch boundaries.
+    batches are grouped by; each row's ``year_month`` is as in
+    :func:`read_articles` (the month folder with ``rules="cape"``, the
+    ``date`` with ``rules="legacy"``).
 
     ``countries`` is as in :func:`read_articles`. ``start``/``end``, if
     given, restrict which year-month *folders* are read at all (inclusive
@@ -166,10 +181,13 @@ def iter_country_month_batches(
             files_by_month.setdefault(year_month, []).append(file)
 
         for year_month in sorted(files_by_month):
+            # newspapers in name order (case ignored), as the CAPE index keeps the first copy
             files = sorted(files_by_month[year_month])
+            if _rules.check(rules) == "cape":
+                files.sort(key=lambda f: (f.parent.parent.name.lower(), str(f).lower()))
             frames = [_read_one(file, country, encoding) for file in files]
             found_any = True
-            yield _finalize(pd.concat(frames, ignore_index=True))
+            yield _finalize(pd.concat(frames, ignore_index=True), rules)
 
     if not found_any:
         raise FileNotFoundError(f"no article files found under {root}")

@@ -136,6 +136,7 @@ def count_archive(
     cache: bool | str | Path | None = None,
     engine: str = "fast",
     groups: tuple[str, ...] = EPU_GROUPS,
+    rules: str = "cape",
 ) -> pd.DataFrame:
     """Count EPU and total articles per country-site-month directly from an
     article archive, without ever materializing the whole requested scope
@@ -175,6 +176,11 @@ def count_archive(
     re-runs only read new or changed files. ``engine="pandas"`` is the
     original batch-by-batch pandas path, kept for checking; it is also used
     automatically when non-default column names are passed.
+
+    ``rules``: ``"cape"`` (default) counts exactly as the CAPE EPU index --
+    newspaper and month from the folders, text as stored, the index's duplicate
+    keys; ``"legacy"`` as the library did before 18 Nov 2026. See
+    :mod:`CAPEnewsindex._rules`.
     """
     standard_columns = (country_col, site_col, month_col, title_col, text_col) == (
         "country", "site", "year_month", "title", "text"
@@ -191,19 +197,19 @@ def count_archive(
         return count_archive_fast(
             root, dictionary, countries=countries, encoding=encoding, dedupe=dedupe,
             progress=progress, start=start, end=end, windows=windows, workers=workers, cache=cache,
-            groups=groups,
+            groups=groups, rules=rules,
         )
 
     parts: list[pd.DataFrame] = []
     for batch in iter_country_month_batches(
-        root, countries=countries, encoding=encoding, start=start, end=end, windows=windows
+        root, countries=countries, encoding=encoding, start=start, end=end, windows=windows, rules=rules
     ):
         country = str(batch[country_col].iloc[0]) if len(batch) else "?"
         months = sorted(str(m) for m in batch[month_col].unique()) if len(batch) else []
         n_read = len(batch)
 
         if dedupe:
-            batch = _dedup.dedupe(batch, url_col="url", title_col=title_col, text_col=text_col)
+            batch = _dedup.dedupe(batch, url_col="url", title_col=title_col, text_col=text_col, rules=rules)
         n_deduped = len(batch)
 
         batch_counts = count(

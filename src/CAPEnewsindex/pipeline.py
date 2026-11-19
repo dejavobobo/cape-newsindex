@@ -56,6 +56,7 @@ def _read_and_count(
     windows: list[tuple[str, str]] | None = None,
     workers: int | None = None,
     cache: bool | str | Path | None = False,
+    rules: str = "cape",
 ) -> pd.DataFrame:
     kw = _load_dictionary(keywords, verbose=verbose)
 
@@ -64,7 +65,7 @@ def _read_and_count(
     started = time.perf_counter()
     counts = _index.count_archive(
         root, kw, countries=countries, progress=progress, start=start, end=end, windows=windows,
-        workers=workers, cache=cache,
+        workers=workers, cache=cache, rules=rules,
     )
     elapsed = time.perf_counter() - started
     _log(
@@ -86,6 +87,7 @@ def run_index(
     verbose: bool = True,
     workers: int | None = None,
     cache: bool | str | Path | None = False,
+    rules: str = "cape",
 ) -> pd.DataFrame:
     """Read an article archive and compute a single-window EPU index in one call.
 
@@ -106,11 +108,12 @@ def run_index(
     them; small jobs run in a single process). ``cache=True`` keeps each
     article file's results in a local SQLite cache (or pass a file path), so
     later runs over the same months only read new or changed files. See
-    :func:`CAPEnewsindex.index.count_archive`.
+    :func:`CAPEnewsindex.index.count_archive`. ``rules``: ``"cape"`` (default,
+    as the CAPE EPU index) or ``"legacy"`` -- see :mod:`CAPEnewsindex._rules`.
     """
     counts = _read_and_count(
         root, keywords, countries, verbose=verbose, start=start, end=end,
-        workers=workers, cache=cache,
+        workers=workers, cache=cache, rules=rules,
     )
     _log(verbose, f"Computing index for {start}..{end} ...")
     result = _index.compute_index(counts, start, end)
@@ -130,6 +133,7 @@ def run_index_with_history(
     verbose: bool = True,
     workers: int | None = None,
     cache: bool | str | Path | None = False,
+    rules: str = "cape",
 ) -> tuple[pd.DataFrame, History]:
     """Read an article archive and score it against a frozen history in one call.
 
@@ -141,7 +145,7 @@ def run_index_with_history(
     (see :func:`CAPEnewsindex.index.score_windows`); this is the with-history
     variant.
 
-    ``countries``, ``verbose``, ``workers`` and ``cache`` are as in
+    ``countries``, ``verbose``, ``workers``, ``cache`` and ``rules`` are as in
     :func:`run_index`. With ``cache=True``, a monthly update that re-fits or
     re-checks the history window only reads the new month's files.
 
@@ -167,7 +171,7 @@ def run_index_with_history(
 
     counts = _read_and_count(
         root, keywords, countries, verbose=verbose, windows=selected_windows,
-        workers=workers, cache=cache,
+        workers=workers, cache=cache, rules=rules,
     )
 
     fitted_fresh = history is None

@@ -443,6 +443,20 @@ def monthly_gdp(
     )
 
 
+def freeze_weights_after(weights: pd.DataFrame, month: str, weight_col: str = "gdp") -> pd.DataFrame:
+    """Weights for the months after ``month`` set to each country's weight in ``month``.
+
+    The CAPE EPU index keeps the GDP weights at their value in the history's last
+    month for every later month; countries without a weight in ``month`` drop out
+    after it.
+    """
+    out = weights.copy()
+    at = out[out["year_month"] == month].set_index("country")[weight_col]
+    later = out["year_month"] > month
+    out.loc[later, weight_col] = out.loc[later, "country"].map(at)
+    return out.dropna(subset=[weight_col]).reset_index(drop=True)
+
+
 def _population_stats(series: pd.Series) -> tuple[float, float]:
     values = series.to_numpy(dtype=float)
     return float(np.mean(values)), float(np.std(values, ddof=0))
@@ -458,6 +472,7 @@ def aggregate(
     history=None,
     history_start: str | None = None,
     history_end: str | None = None,
+    missing: str = "neutral",
 ) -> pd.DataFrame:
     """Weighted group indices for the blocks of countries you define.
 
@@ -484,6 +499,13 @@ def aggregate(
       they are divided by their own sum -- so e.g. equal weighting is
       ``lambda rows, group: pandas.Series(1.0, index=rows.index)``.
 
+    ``missing`` -- a country of the group that has a weight that month but no
+    index value (no articles, or no usable scaling): ``"neutral"`` (default, as
+    the CAPE EPU index) counts it as z = 0 with its usual weight; ``"drop"``
+    leaves it out and shares the weight among the others (the library before
+    18 Nov 2026). ``"neutral"`` needs a weights table; with a weighting
+    function, missing countries are always left out.
+
     The scaling period: pass the :class:`CAPEnewsindex.index.History` used to
     score ``country_index`` as ``history`` to reuse its window, or give
     ``history_start``/``history_end``. Without either, all months in
@@ -491,6 +513,8 @@ def aggregate(
     """
     from .index import value_column
 
+    if missing not in ("neutral", "drop"):
+        raise ValueError(f'missing must be "neutral" or "drop", not {missing!r}.')
     value = value or value_column(country_index)
     if history is not None:
         history_start, history_end = history.start, history.end
@@ -520,28 +544,38 @@ def aggregate(
     merged["z"] = (merged[value] - merged["m_c"]) / merged["s_c"]
 
     all_groups = dict(groups)
+    # "neutral": every group member with a weight that month takes part, z = 0 if it has no index
+    month_weights: dict[str, dict[str, float]] = {}
+    if missing == "neutral" and not callable(weights):
+        for ym, g in weights.groupby("year_month"):
+            month_weights[str(ym)] = dict(zip(g["country"], g[weight_col].astype(float)))
 
     group_rows: list[dict] = []
     for group_name, members in all_groups.items():
-        group_data = merged[merged["country"].isin(members)]
+        member_set = set(members)
+        group_data = merged[merged["country"].isin(member_set)]
         for year_month, month_rows in group_data.groupby("year_month"):
             raw_weight = weights(month_rows, group_name) if callable(weights) else month_rows[weight_col]
-            total_weight = raw_weight.sum()
+            present = set(month_rows["country"])
+            neutral = [w for c, w in month_weights.get(str(year_month), {}).items()
+                       if c in member_set and c not in present and w > 0]
+            total_weight = float(raw_weight.sum()) + float(sum(neutral))
             if total_weight <= 0:
                 continue
-            weight = raw_weight / total_weight
-            z_weighted = float((weight * month_rows["z"]).sum())
+            z_weighted = float((raw_weight * month_rows["z"]).sum()) / total_weight
             group_rows.append(
                 {
                     "group": group_name,
                     "year_month": year_month,
                     "Z": z_weighted,
                     "n_countries": int(month_rows["country"].nunique()),
-                    "weight_covered": float(total_weight),
+                    "n_neutral": len(neutral),
+                    "weight_covered": total_weight,
                 }
             )
 
-    regional = pd.DataFrame(group_rows, columns=["group", "year_month", "Z", "n_countries", "weight_covered"])
+    regional = pd.DataFrame(group_rows, columns=["group", "year_month", "Z", "n_countries", "n_neutral",
+                                                 "weight_covered"])
     if regional.empty:
         return regional.rename(columns={"Z": "z"}).assign(index=pd.Series(dtype=float))
 
@@ -561,11 +595,12 @@ def aggregate(
                     "z": row["Z"],
                     "index": 100.0 + 10.0 * (row["Z"] - m_r) / s_r,
                     "n_countries": row["n_countries"],
+                    "n_neutral": row["n_neutral"],
                     "weight_covered": row["weight_covered"],
                 }
             )
 
     result = pd.DataFrame(
-        output_rows, columns=["group", "year_month", "z", "index", "n_countries", "weight_covered"]
+        output_rows, columns=["group", "year_month", "z", "index", "n_countries", "n_neutral", "weight_covered"]
     )
     return result.sort_values(["group", "year_month"]).reset_index(drop=True)

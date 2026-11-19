@@ -500,7 +500,10 @@ def build(result, months: int = 12, version: str = "both", title: str | None = N
         + "".join(f"<tr><td>{_e(k)}</td><td style='text-align:left;white-space:normal'>{_e(v)}</td></tr>"
                   for k, v in (("index", s.get("title", m)), ("period", s["period"]), ("mode", s["mode"]),
                                ("countries", f"{len(s['countries'])}: " + ", ".join(s["countries"])),
-                               ("archive", s.get("archive", "")), ("generated", f"{today}, CAPEnewsindex {__version__}")))
+                               ("archive", s.get("archive", "")),
+                               ("rules", s.get("rules_detail") or s.get("rules") or "legacy"),
+                               ("GDP", f"{s['gdp_frequency']}, {s.get('gdp_periods', '')}" if s.get("gdp_frequency") else "none"),
+                               ("generated", f"{today}, CAPEnewsindex {__version__}")))
         + "</table></div>"
     )
     if len(result.skipped_files):

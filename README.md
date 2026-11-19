@@ -53,7 +53,7 @@ result.show()
 
 | Input | Form |
 | --- | --- |
-| **Archive** | `<archive>/<country>/<newspaper>/<YYYY-MM>/*.csv(.gz)`, columns `site, date, title, url, text`. Folder names are the country names used everywhere. |
+| **Archive** | `<archive>/<country>/<newspaper>/<YYYY-MM>/*.csv(.gz)`, columns `site, date, title, url, text`. Folder names are the country, newspaper and month names used everywhere (see [Rules](#rules-same-results-as-the-cape-epu-index)). |
 | **Keywords** (required) | `.xlsx`/`.csv` (columns `country, group, term`), `.txt` (`[Country]`, then `group:` lines, one term per line), `.json`, or a dict. A country `*` applies to every country. |
 | **GDP** (only for group indices) | CSV/Excel or DataFrame, **annual** (`2015`), **quarterly** (`2015Q1`) or **monthly** (`201501`, `2015-01`): a country, a period and a GDP column, or a period column plus one column per country. Turned into months (log-linear). See [GDP: annual, quarterly or monthly](#gdp-annual-quarterly-or-monthly). |
 
@@ -148,6 +148,12 @@ Relative folders are created next to your script.
 
 **11. Speed and output.** `workers=4` (default: all cores); `cache=False` (re-read everything); `verbose=False` (no printing).
 
+**12. Same numbers as the CAPE EPU index, or as an older library run.** The default `rules="cape"` follows the CAPE index exactly; `rules="legacy"` gives the library's results before 18 November 2026. Every run prints and saves the rules it used. Details [below](#rules-same-results-as-the-cape-epu-index).
+```python
+ni.build_index(archive, keywords, "all", history=("2015-01", "2025-12"))                    # rules="cape"
+ni.build_index(archive, keywords, "all", history=("2015-01", "2025-12"), rules="legacy")   # older results
+```
+
 ---
 
 ## More tools
@@ -207,6 +213,7 @@ articles = ni.read_articles(archive, countries=["Ghana"]); ni.dedup.dedupe(artic
 | `gdp`, `gdp_names` | GDP file or DataFrame (annual, quarterly or monthly); name renames | none |
 | `gdp_frequency` | `"auto"`, `"annual"`, `"quarterly"` or `"monthly"` | `"auto"` (read from the periods) |
 | `groups` | `{"Group": [countries]}` (needs `gdp`) | one group of all countries |
+| `rules` | `"cape"` (as the CAPE EPU index) or `"legacy"` (the library before 18 Nov 2026) | `"cape"` |
 | `title` | dashboard heading | automatic |
 | `output`, `files` | folder; any of `dashboard`, `excel`, `csv`, `chart`, `history`, `all` | none; dashboard + Excel |
 | `workers`, `cache`, `verbose` | cores; reuse cached file results; print progress | all; `True`; `True` |
@@ -219,19 +226,21 @@ articles = ni.read_articles(archive, countries=["Ghana"]); ni.dedup.dedupe(artic
 - **Countries**: one chart per country, under your groups, with a search box;
 - **Newspapers**: article counts;
 - **Keywords**: every term used;
-- **About**: the method, the settings and any files that couldn't be read.
+- **About**: the method, the settings (including the rules and the GDP used) and any files that couldn't be read.
 
 A switch flips every page between *with history* and *no history*.
 
-**`{name}_results.xlsx`** has every table, one per sheet.
+**`{name}_results.xlsx`** has every table, one per sheet, and a `settings` sheet: library version, index, period, history, rules, GDP, countries and archive -- so anyone comparing two results can see how each was made.
+
+If a file is open in another program (Excel, a browser), the run is not lost: it is saved as `epu_results (1).xlsx` (and so on) with a note.
 
 ### Method
 
-1. **Classify.** An article counts when its title or text has a term from every keyword group. Terms match as whole words or phrases, ignoring case. Duplicates are removed per country and month, by canonical URL or by title and text.
+1. **Classify.** An article counts when its title or text has a term from every keyword group. Terms match as whole words or phrases, ignoring case. Duplicates are removed per country and month: the same link, or, for an article without a link, the same title and text; the first copy is kept, newspapers in name order.
 2. **Share.** `S_it` = matching articles / all articles, for newspaper *i* in month *t*.
 3. **Standardise.** `N_it = S_it / σ_i`, where `σ_i` is the newspaper's standard deviation over the scaling period (the history period, or `start`..`end`).
 4. **Index.** `index_t = 100 · M_t / μ`, where `M_t` is the mean of `N_it` across newspapers and `μ` is the mean of `M_t` over the scaling period.
-5. **Group index.** Each country's index becomes a z-score over the scaling period. The group is the GDP-weighted average of those z-scores, shown as 100 + 10 × the standardised value. The weights are each country's share of the group's GDP in that month: annual or quarterly GDP is first turned into months (see the next section).
+5. **Group index.** Each country's index becomes a z-score over the scaling period. The group is the GDP-weighted average of those z-scores, shown as 100 + 10 × the standardised value. The weights are each country's share of the group's GDP in that month: annual or quarterly GDP is first turned into months (see [GDP](#gdp-annual-quarterly-or-monthly)). A country of the group with GDP but no index that month counts as neutral (z = 0) with its usual weight, and after a history period the weights stay at their value in the history's last month (`rules="cape"`).
 
 Reference: Baker, Bloom and Davis (2016), *Quarterly Journal of Economics* 131(4), 1593–1636.
 
@@ -298,6 +307,30 @@ monthly.attrs["frequency"], monthly.attrs["periods"]                    # 'quart
 ni.build_index(archive, keywords, "all", gdp="gdp_ppp_monthly_wide.csv", gdp_frequency="monthly", groups=regions)
 ```
 
+### Rules: same results as the CAPE EPU index
+
+Two programs read the same articles: CAPE's own EPU index and this library. With the default `rules="cape"`, the library follows the index's rules exactly, so **the same archive, keywords, GDP, groups and history give the same numbers** -- article counts, country indices and group indices. `rules="legacy"` reproduces results made with the library before 18 November 2026.
+
+| | `rules="cape"` (default) | `rules="legacy"` |
+| --- | --- | --- |
+| Newspaper | the newspaper folder | the file's `site` column |
+| Month | the month folder | the article's `date` |
+| Text matched | as stored (HTML codes such as `&rsquo;` are not decoded) | HTML codes decoded first |
+| Same article | same link (host without `www`, path, the query only where it names the article, lower case); without a link, same title and text; rows with no link, title or text are never duplicates | same full link (scheme, query); without a link, same normalised title and text |
+| Which copy is kept | the first, newspapers in name order (case ignored) | the first, files in path order |
+| Country with no index that month, in a group | neutral (z = 0) with its usual weight | left out; its weight goes to the others |
+| GDP weights after the history | frozen at the history's last month | each month's own GDP |
+
+**To get the CAPE index's numbers** you also need the same inputs as the index:
+- the cleaned archive the index reads (the library does not drop listing pages, job notices and similar rows itself -- the archive is cleaned for that);
+- the same keyword file and GDP file;
+- the same history period;
+- the same `groups`, country for country.
+
+**Comparing results with someone else.** Open the `settings` sheet of both `epu_results.xlsx` files (or `result.settings`): if the version, rules, keywords, GDP, history or groups differ, the numbers can differ. The cache keeps results for each rule set apart, so switching `rules` never mixes them.
+
+**For developers.** `rules="cape"` must stay identical to the CAPE index: change a counting or grouping rule in both, and check it with `tests/test_rules.py` and a comparison on real files.
+
 ### Troubleshooting
 
 | Message | Fix |
@@ -314,6 +347,8 @@ ni.build_index(archive, keywords, "all", gdp="gdp_ppp_monthly_wide.csv", gdp_fre
 | `Can't tell the frequency from a single date` | add `gdp_frequency="annual"` (or quarterly / monthly) |
 | `Two different values for ... in the same quarter` | keep one row per country and period |
 | `No country column found` | name it with `country_col=`, or use a wide file |
+| your numbers differ from someone else's | compare the `settings` sheets: version, rules, keywords, GDP, history and groups must all match |
+| `... is open in another program, so this run was saved as ... (1)` | close the file (Excel, browser) to overwrite it next time |
 | all values near 100 in a short run | that is the no-history version: use `history=` |
 | a run is much slower than usual | usually a cloud drive syncing: make the folder available offline, or use use case 8, option B |
 
@@ -343,6 +378,7 @@ src/CAPEnewsindex/
   aggregate.py    z-scores and group indices; weights.py (GDP, population, equal, PCA)
   pipeline.py     run_index, run_index_with_history
   diagnostics.py, report.py, plot.py, save.py, countries.py, dedup.py, articles.py
+  _rules.py       rules="cape" / "legacy": how articles are read, de-duplicated and grouped
   _anyindex.py    lets the report/plot helpers work with any index name
   data/           keyword template, ISO country table, logo
 tests/            pytest suite; tests/data/ holds a GDP file used only by the tests
@@ -354,6 +390,7 @@ examples/         run_epu.py, test_with_drive.ipynb, sample_articles.xlsx + test
 - **Add or update a test with every change.** The fast reader is checked against a plain pandas implementation on randomized messy archives (`tests/test_fastscan.py`), so any change to reading or matching must keep that test passing.
 - **Keep the library neutral.** No built-in countries, regions or data. Defaults must never pick keywords, groups or GDP for the user.
 - **New settings follow the same rule:** empty means skipped.
+- **Keep `rules="cape"` identical to the CAPE EPU index.** A change to how articles are read, matched, de-duplicated or grouped is made in both, and `rules="legacy"` keeps giving the old results.
 
 ### Continuous integration
 

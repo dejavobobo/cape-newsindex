@@ -96,8 +96,9 @@ def _build_messy_archive(root: Path, seed: int) -> None:
 @pytest.mark.parametrize("seed", range(6))
 @pytest.mark.parametrize(
     "options",
-    [{}, {"dedupe": False}, {"start": "2024-02", "end": "2024-03"}, {"windows": [("2024-01", "2024-01"), ("2024-03", "2024-04")]}],
-    ids=["all", "no-dedupe", "start-end", "windows"],
+    [{}, {"dedupe": False}, {"start": "2024-02", "end": "2024-03"}, {"windows": [("2024-01", "2024-01"), ("2024-03", "2024-04")]},
+     {"rules": "legacy"}, {"rules": "legacy", "dedupe": False}],
+    ids=["all", "no-dedupe", "start-end", "windows", "legacy", "legacy-no-dedupe"],
 )
 def test_fast_engine_matches_pandas_engine(tmp_path, seed, options):
     _build_messy_archive(tmp_path, seed)

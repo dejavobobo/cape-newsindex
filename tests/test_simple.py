@@ -205,9 +205,11 @@ def test_unknown_keyword_file_type(tmp_path):
 
 
 def test_history_run_also_gives_the_no_history_version(archive, tmp_path, capsys):
+    # legacy rules: the test archive's misdated rows give every newspaper months in 2024-03..04
     result = ni.build_index(archive, KEYWORDS, TWO, "2024-03", "2024-04", history=("2024-01", "2024-02"),
-                            gdp=GDP, verbose=False, cache=False)
-    alone = ni.build_index(archive, KEYWORDS, TWO, "2024-03", "2024-04", verbose=False, cache=False)
+                            gdp=GDP, verbose=False, cache=False, rules="legacy")
+    alone = ni.build_index(archive, KEYWORDS, TWO, "2024-03", "2024-04", verbose=False, cache=False,
+                           rules="legacy")
     assert result.no_history.equals(alone.country)          # same as a no-history-only run
     assert result.groups_no_history is not None
 

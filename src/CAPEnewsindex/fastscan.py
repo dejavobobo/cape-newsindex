@@ -50,10 +50,11 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from . import _rules
 from ._version import __version__
-from .dedup import canonical_url
+from .dedup import article_key
 from .dictionary import EPU_GROUPS
-from .match import IndexMatcher, light_normalize, normalize
+from .match import IndexMatcher, light_normalize
 
 #: Bump when anything changes how a file's per-article results are computed.
 ENGINE_VERSION = "1"
@@ -163,15 +164,17 @@ _W_MATCHERS: dict[str, IndexMatcher | None] = {}
 _W_TERMS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]] | None] = {}
 _W_ENCODING = "utf-8"
 _W_DEDUPE = True
+_W_RULES = _rules.DEFAULT
 
 
-def _worker_init(terms: dict, encoding: str, dedupe: bool) -> None:
-    global _W_TERMS, _W_MATCHERS, _W_ENCODING, _W_DEDUPE
+def _worker_init(terms: dict, encoding: str, dedupe: bool, rules: str = _rules.DEFAULT) -> None:
+    global _W_TERMS, _W_MATCHERS, _W_ENCODING, _W_DEDUPE, _W_RULES
     _set_csv_limit()
     _W_TERMS = terms
     _W_MATCHERS = {}
     _W_ENCODING = encoding
     _W_DEDUPE = dedupe
+    _W_RULES = _rules.check(rules)
 
 
 def _matcher(country: str) -> IndexMatcher | None:
@@ -292,20 +295,23 @@ def scan_file(task: tuple[str, str]) -> tuple:
     flags = bytearray()
     keys = array("Q")
     dedupe = _W_DEDUPE
+    cape = _W_RULES == "cape"
+    if cape:   # as the CAPE index: newspaper and month from the folders, text as stored
+        folder = Path(path)
+        folder_site, folder_month = folder.parent.parent.name, folder.parent.name
     for site, date, title, url, text in rows:
-        title = _unescape(title)
-        text = _unescape(text)
+        if cape:
+            site, ym = folder_site, folder_month
+        else:
+            title = _unescape(title)
+            text = _unescape(text)
+            ym = date[:7] if date is not None else None  # None: missing date (see _missing_date_month)
         site_codes.append(sites.setdefault(site, len(sites)))
-        ym = date[:7] if date is not None else None  # None: missing date (see _missing_date_month)
         month_codes.append(months.setdefault(ym, len(months)))
         flags.append(1 if matcher(light_normalize(f"{title or ''} {text or ''}")) else 0)
         if dedupe:
-            key = canonical_url(url)
-            if key:
-                keys.append(_hash64("u" + key))
-            else:
-                blob = normalize(title) + "\x1f" + normalize(text)
-                keys.append(_hash64("t" + blob))
+            key = article_key(url, title, text, _W_RULES)
+            keys.append((_hash64(key) or 1) if key else 0)   # 0: never a duplicate
     return (
         path,
         len(rows),
@@ -331,9 +337,10 @@ def default_cache_path() -> Path:
     return root / "scan_cache.sqlite"
 
 
-def _country_fingerprint(entry, encoding: str, dedupe: bool) -> str:
+def _country_fingerprint(entry, encoding: str, dedupe: bool, rules: str = _rules.DEFAULT) -> str:
     blob = json.dumps(
-        [ENGINE_VERSION, __version__, encoding, dedupe, [list(c) for c in entry] if entry else None],
+        [ENGINE_VERSION, __version__, encoding, dedupe, [list(c) for c in entry] if entry else None]
+        + ([] if rules == "legacy" else [rules]),   # legacy keeps the cache entries it already had
         ensure_ascii=False,
     )
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:24]
@@ -441,7 +448,7 @@ def _batch_counts(country: str, results: list[tuple], dedupe: bool, missing_mont
         month_labels.update("nan" if m is None else m for m in months)
         for r in range(n):
             ym = months[month_codes[r]]
-            if dedupe:
+            if dedupe and keys[r]:   # key 0: no link, title or text -- never a duplicate
                 k = (ym, keys[r])
                 if k in seen:
                     continue
@@ -477,6 +484,7 @@ def count_archive_fast(
     by_folder: bool = False,
     file_progress: Callable[[dict], None] | None = None,
     groups: tuple[str, ...] = EPU_GROUPS,
+    rules: str = _rules.DEFAULT,
 ):
     """See :func:`CAPEnewsindex.index.count_archive` (this is its fast engine).
 
@@ -494,7 +502,13 @@ def count_archive_fast(
     """
     import pandas as pd
 
+    rules = _rules.check(rules)
     files = discover(root, countries, start=start, end=end, windows=windows)
+    if rules == "cape":   # newspapers in name order (case ignored) within each month, as the CAPE index
+        order = {}
+        for f in files:
+            order.setdefault(f[0], len(order))
+        files.sort(key=lambda t: (order[t[0]], t[1], Path(t[2]).parent.parent.name.lower(), t[2].lower()))
     if not files:
         raise FileNotFoundError(f"no article files found under {root}")
 
@@ -507,7 +521,7 @@ def count_archive_fast(
         )
         for c in needed
     }
-    fps = {c: _country_fingerprint(terms[c], encoding, dedupe) for c in needed}
+    fps = {c: _country_fingerprint(terms[c], encoding, dedupe, rules) for c in needed}
 
     cache_path = default_cache_path() if cache is True else (Path(cache) if cache else None)
     store = _Cache(cache_path)
@@ -589,7 +603,7 @@ def count_archive_fast(
         work = sorted(todo, key=lambda f: -f[3])  # largest first keeps every core busy
         try:
             if n_workers == 1:
-                _worker_init(terms, encoding, dedupe)
+                _worker_init(terms, encoding, dedupe, rules)
                 for f in work:
                     try:
                         res = scan_file((f[0], f[2]))
@@ -597,7 +611,7 @@ def count_archive_fast(
                         res = exc
                     handle(res, f)
             else:
-                _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle)
+                _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle, rules)
         finally:
             store.put(pending)
             store.close()
@@ -669,7 +683,7 @@ def _workers_skip_main_module():
             main.__dict__.pop("__spec__", None)
 
 
-def _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle) -> None:
+def _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle, rules=_rules.DEFAULT) -> None:
     import multiprocessing
     from concurrent.futures import ProcessPoolExecutor, as_completed
     from concurrent.futures.process import BrokenProcessPool
@@ -680,7 +694,7 @@ def _run_pool(work, terms, encoding, dedupe, n_workers, task_of, handle) -> None
     try:
         with _workers_skip_main_module(), ProcessPoolExecutor(
             max_workers=n_workers, mp_context=ctx, initializer=_worker_init,
-            initargs=(sub_terms, encoding, dedupe),
+            initargs=(sub_terms, encoding, dedupe, rules),
         ) as pool:
             futures = {pool.submit(scan_file, (f[0], f[2])): f for f in work}
             for fut in as_completed(futures):
