@@ -89,7 +89,9 @@ def count(
         raise KeyError(f"countries missing from dictionary: {missing}")
 
     working = articles.copy()
-    raw_text = working[title_col].fillna("").astype(str) + " " + working[text_col].fillna("").astype(str)
+    if month_col not in working.columns and "date" in working.columns:
+        working[month_col] = working["date"].astype(str).str.slice(0, 7)
+    raw_text = working[title_col].astype(object).fillna("").astype(str) + " " + working[text_col].astype(object).fillna("").astype(str)
 
     is_epu_flags = pd.Series(False, index=working.index)
     for country, rows in working.groupby(country_col, sort=False, observed=True).groups.items():
