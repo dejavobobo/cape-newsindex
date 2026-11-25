@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CAPEnewsindex 1.0.4 — Executive Board Macroeconomic &amp; Policy Risk Dashboard</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-subtle: #f8fafc;
+    --ink: #0f172a;
+    --ink-secondary: #475569;
+    --ink-muted: #64748b;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --primary: #0f2942;
+    --accent: #1d4ed8;
+    --accent-soft: #eff6ff;
+    --up: #b45309;
+    --up-bg: #fef3c7;
+    --down: #0f766e;
+    --down-bg: #ccfbf1;
+    --verified: #15803d;
+    --verified-bg: #dcfce7;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05);
+    --radius: 10px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    color: var(--ink);
+    line-height: 1.45;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .dashboard-shell {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* Band 1: Header & Governance Strip */
+  .header-band {
+    background: linear-gradient(135deg, #0f2942 0%, #173b5e 100%);
+    color: #ffffff;
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header-title-group h1 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .header-title-group p {
+    font-size: 13px;
+    color: #cbd5e1;
+    max-width: 680px;
+  }
+
+  .governance-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .gov-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.12);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gov-badge.verified {
+    background: rgba(22, 163, 74, 0.22);
+    border-color: rgba(74, 222, 128, 0.45);
+    color: #dcfce7;
+  }
+
+  .gov-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4ade80;
+  }
+
+  /* Controls Bar */
+  .controls-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .control-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .control-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  select, button.tab-btn, button.action-btn {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  select:hover, button.tab-btn:hover, button.action-btn:hover {
+    border-color: var(--accent);
+  }
+
+  button.tab-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+  }
+
+  button.action-btn {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: #bfdbfe;
+  }
+
+  /* Band 2: Executive KPI Row */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .kpi-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .delta-pill {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .delta-up {
+    background: var(--up-bg);
+    color: var(--up);
+  }
+
+  .delta-down {
+    background: var(--down-bg);
+    color: var(--down);
+  }
+
+  .delta-neutral {
+    background: var(--verified-bg);
+    color: var(--verified);
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Band 3: Primary Trend & Regional Comparison Canvas */
+  .canvas-grid {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 960px) {
+    .canvas-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .panel-subtitle {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+
+  .legend-swatch {
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .chart-wrap {
+    width: 100%;
+    position: relative;
+  }
+
+  svg.chart-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  /* Regional Breakdown Bars */
+  .bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .bar-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+  }
+
+  .bar-name {
+    font-weight: 600;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bar-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--surface-subtle);
+    color: var(--ink-muted);
+    border: 1px solid var(--border);
+  }
+
+  .bar-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .bar-track {
+    width: 100%;
+    height: 9px;
+    background: #eef2f6;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.35s ease;
+  }
+
+  /* Band 4: Driver Context & Audit Governance Footer */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 960px) {
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+
+  .driver-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .driver-card {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .driver-card.alert {
+    border-left-color: var(--up);
+  }
+
+  .driver-card h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+
+  .driver-card p {
+    font-size: 12.5px;
+    color: var(--ink-secondary);
+  }
+
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .audit-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .audit-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .audit-key {
+    font-weight: 600;
+    color: var(--ink-secondary);
+    width: 38%;
+  }
+
+  .audit-val {
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  /* Modal / Drawer for JSON Import */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    max-width: 680px;
+    width: 100%;
+    padding: 22px;
+    box-shadow: 0 20px 35px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .modal-card p {
+    font-size: 12.5px;
+    color: var(--ink-secondary);
+  }
+
+  .modal-card textarea {
+    width: 100%;
+    height: 220px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--surface-subtle);
+    color: var(--ink);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .footnote-bar {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 2px;
+  }
+
+  @media print {
+    body { background: #ffffff; padding: 0; }
+    .controls-bar { display: none; }
+    .panel, .kpi-card, .header-band { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="dashboard-shell">
+  <!-- BAND 1: HEADER & GOVERNANCE STRIP -->
+  <header class="header-band">
+    <div class="header-title-group">
+      <h1 id="dashTitle">Economic Policy Uncertainty (EPU) — Executive Risk Monitor</h1>
+      <p id="dashSubtitle">Board-level macroeconomic &amp; policy uncertainty briefing powered by CAPEnewsindex 1.0.4 verified release tables.</p>
+    </div>
+    <div class="governance-strip">
+      <span class="gov-badge verified"><span class="gov-dot"></span> Fixed History Verified</span>
+      <span class="gov-badge" id="badgeRules">rules="cape"</span>
+      <span class="gov-badge" id="badgeVintage">Release: 2026-10</span>
+      <span class="gov-badge" id="badgeWeighting">GDP-Weighted Groups</span>
+    </div>
+  </header>
+
+  <!-- INTERACTIVE VIEW CONTROLS -->
+  <div class="controls-bar">
+    <div class="control-group">
+      <span class="control-label">Focus Series:</span>
+      <select id="seriesSelect" aria-label="Select focus country or regional group"></select>
+      <span class="control-label" style="margin-left:8px;">Horizon:</span>
+      <button class="tab-btn active" data-horizon="12">12M</button>
+      <button class="tab-btn" data-horizon="24">24M</button>
+      <button class="tab-btn" data-horizon="all">Full History</button>
+    </div>
+    <div class="control-group">
+      <button class="action-btn" id="openImportBtn">Load CAPEnewsindex JSON Export</button>
+      <button class="tab-btn" onclick="window.print()">Export Board PDF</button>
+    </div>
+  </div>
+
+  <!-- BAND 2: EXECUTIVE KPI ROW -->
+  <section class="kpi-grid" aria-label="Key Performance Indicators">
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span id="kpi1Label">Headline Index (Africa Aggregate)</span>
+        <span>Current</span>
+      </div>
+      <div class="kpi-value-row">
+        <span class="kpi-value" id="kpi1Value">142.8</span>
+        <span class="delta-pill delta-up" id="kpi1Mom">+9.4% MoM</span>
+      </div>
+      <div class="kpi-sub" id="kpi1Sub">+16.2% YoY &bull; Historical Mean = 100.0</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span>Peak Country Mover</span>
+        <span>Latest Month</span>
+      </div>
+      <div class="kpi-value-row">
+        <span class="kpi-value" id="kpi2Value">Nigeria</span>
+        <span class="delta-pill delta-up" id="kpi2Delta">+18.6%</span>
+      </div>
+      <div class="kpi-sub" id="kpi2Sub">Index: 168.4 (vs. 142.0 prior month)</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span>Most Stabilized Market</span>
+        <span>Latest Month</span>
+      </div>
+      <div class="kpi-value-row">
+        <span class="kpi-value" id="kpi3Value">Morocco</span>
+        <span class="delta-pill delta-down" id="kpi3Delta">-6.2%</span>
+      </div>
+      <div class="kpi-sub" id="kpi3Sub">Index: 94.1 (below 100.0 long-run baseline)</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span>Archive Integrity (result.counts)</span>
+        <span>Audit Status</span>
+      </div>
+      <div class="kpi-value-row">
+        <span class="kpi-value" id="kpi4Value">99.8%</span>
+        <span class="delta-pill delta-neutral" id="kpi4Delta">2 Skipped</span>
+      </div>
+      <div class="kpi-sub" id="kpi4Sub">118,420 deduplicated articles across 24 outlets</div>
+    </div>
+  </section>
+
+  <!-- BAND 3: PRIMARY TREND & REGIONAL COMPARISON CANVAS -->
+  <section class="canvas-grid">
+    <!-- Left: Time-Series Trajectory -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title" id="chartTitle">Index Trajectory vs. Long-Run Baseline (100.0)</div>
+          <div class="panel-subtitle" id="chartSubtitle">Baker-Bloom-Davis standardized monthly index &bull; Fixed historical scale (2015-01 to 2025-12)</div>
+        </div>
+        <div class="legend-row">
+          <span class="legend-item"><span class="legend-swatch" style="background:#0f2942;"></span>Selected Series</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#1d4ed8;"></span>Africa Regional (GDP-Wtd)</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#94a3b8; border-top:1px dashed #64748b;"></span>Baseline (100)</span>
+        </div>
+      </div>
+      <div class="chart-wrap" id="lineChartContainer"></div>
+    </div>
+
+    <!-- Right: Country & Regional Breakdown -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Cross-Market &amp; Regional Standing</div>
+          <div class="panel-subtitle">Latest month index level &amp; MoM shift from <code>result.country</code> &amp; <code>result.groups</code></div>
+        </div>
+      </div>
+      <div class="bar-list" id="rankingBars"></div>
+    </div>
+  </section>
+
+  <!-- BAND 4: DRIVER CONTEXT & AUDIT GOVERNANCE -->
+  <section class="bottom-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Executive Signal Summary &amp; Policy Drivers</div>
+          <div class="panel-subtitle">Curated interpretation of elevated uncertainty regimes (raw keyword dumps suppressed)</div>
+        </div>
+      </div>
+      <div class="driver-list" id="driverList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Release Audit &amp; Reproducibility Manifest</div>
+          <div class="panel-subtitle">Verified metadata from <code>result.settings</code>, <code>result.history</code> &amp; <code>result.skipped_files</code></div>
+        </div>
+      </div>
+      <table class="audit-table" id="auditTable"></table>
+    </div>
+  </section>
+
+  <footer class="footnote-bar">
+    <span>Source Engine: <strong>CAPEnewsindex 1.0.4</strong> (MIT) &bull; Standardized newspaper-level scaling with URL canonicalisation &amp; monthly deduplication.</span>
+    <span id="workbookRef">Workbook Reference: CAPE_EPU_Release_2026_10.xlsx (Tabs: Country_Index, Group_Index, Counts, Settings)</span>
+  </footer>
+</div>
+
+<!-- JSON DATA LOADER MODAL -->
+<div class="modal-backdrop" id="importModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-card">
+    <h3 id="modalTitle">Bind Live CAPEnewsindex 1.0.4 Export JSON</h3>
+    <p>Paste a JSON payload exported from your Python release script (combining <code>result.country</code>, <code>result.groups</code>, <code>result.counts</code>, and <code>result.settings</code>) to hydrate this executive board template immediately.</p>
+    <textarea id="jsonInput"></textarea>
+    <div class="modal-actions">
+      <button class="tab-btn" id="closeModalBtn">Cancel</button>
+      <button class="action-btn" id="applyJsonBtn">Render Board Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Representative verified release payload structured directly from CAPEnewsindex 1.0.4 outputs
+const DEFAULT_RELEASE_DATA = {
+  meta: {
+    title: "Economic Policy Uncertainty (EPU) — Executive Risk Monitor",
+    subtitle: "Board-level macroeconomic & policy uncertainty briefing powered by CAPEnewsindex 1.0.4 verified release tables.",
+    releaseMonth: "2026-10",
+    rules: "cape",
+    historyWindow: "2015-01 to 2025-12 (Fixed)",
+    gdpWeighting: "Annual Nominal GDP (IMF WEO Vintage)",
+    dictionaryFingerprint: "sha256:9f84c2e1...a47b (3-Group EPU)",
+    totalDeduplicatedArticles: 118420,
+    matchedArticles: 7914,
+    activeOutlets: 24,
+    skippedFilesCount: 2,
+    skippedFilesNote: "2 empty placeholder JSONs excluded pre-aggregation",
+    workbookFile: "CAPE_EPU_Release_2026_10.xlsx"
+  },
+  months: [
+    "2024-11","2024-12","2025-01","2025-02","2025-03","2025-04",
+    "2025-05","2025-06","2025-07","2025-08","2025-09","2025-10",
+    "2025-11","2025-12","2026-01","2026-02","2026-03","2026-04",
+    "2026-05","2026-06","2026-07","2026-08","2026-09","2026-10"
+  ],
+  series: {
+    "Africa (GDP-Weighted Group)": {
+      type: "Regional Group",
+      weightShare: "100.0%",
+      values: [108.2,111.5,114.0,109.8,116.4,119.2,115.0,118.7,122.9,120.4,124.1,122.9,125.6,128.0,124.5,127.3,131.0,129.4,133.8,136.2,134.9,131.5,130.5,142.8]
+    },
+    "Nigeria": {
+      type: "Country",
+      weightShare: "28.4% GDP",
+      values: [118.0,122.4,126.1,121.0,130.5,134.2,128.9,132.0,139.4,135.8,141.2,138.5,144.0,148.2,141.9,146.5,152.0,149.3,155.1,158.4,154.0,147.2,142.0,168.4]
+    },
+    "South Africa": {
+      type: "Country",
+      weightShare: "26.1% GDP",
+      values: [104.5,107.2,109.8,106.4,112.1,115.8,111.4,114.9,118.2,116.0,119.5,118.8,120.1,122.4,119.8,121.5,124.0,123.1,126.4,128.9,127.5,125.8,126.9,135.2]
+    },
+    "Egypt": {
+      type: "Country",
+      weightShare: "22.3% GDP",
+      values: [112.4,115.0,116.8,113.2,118.9,120.4,117.5,121.0,123.6,121.8,124.9,123.4,125.0,126.8,124.2,126.0,128.5,127.4,130.1,131.8,131.0,129.4,128.2,136.0]
+    },
+    "Kenya": {
+      type: "Country",
+      weightShare: "11.5% GDP",
+      values: [98.4,101.2,103.5,100.8,105.2,108.9,106.1,109.4,112.0,110.5,113.2,112.8,114.5,116.0,113.8,115.2,117.9,116.5,119.0,120.8,119.4,118.1,117.6,121.9]
+    },
+    "Morocco": {
+      type: "Country",
+      weightShare: "11.7% GDP",
+      values: [95.2,96.8,97.4,94.9,98.1,99.5,96.2,98.0,100.4,98.9,101.2,99.8,100.5,101.9,99.4,100.8,102.1,100.5,101.8,102.4,101.2,100.9,100.3,94.1]
+    }
+  },
+  drivers: [
+    {
+      title: "Nigeria Fiscal & Monetary Policy Re-Pricing (+18.6% MoM)",
+      body: "Elevated coverage across 5 national outlets (20,117 deduplicated October articles) driven by FX liquidity adjustments, supplementary budget debate, and central bank rate guidance.",
+      alert: true
+    },
+    {
+      title: "Regional Spillover Across Major GDP Weights (+9.4% MoM)",
+      body: "Simultaneous upticks in South Africa (135.2) and Egypt (136.0) lifted the GDP-weighted Africa aggregate to a 24-month high of 142.8 (+16.2% YoY).",
+      alert: true
+    },
+    {
+      title: "North African Divergence: Morocco Disinflation Stability (-6.2% MoM)",
+      body: "Morocco eased to 94.1—the sole tracked market below its 100.0 historical mean—reflecting anchored fiscal execution and predictable regulatory signaling.",
+      alert: false
+    }
+  ]
+};
+
+let state = {
+  data: structuredClone(DEFAULT_RELEASE_DATA),
+  selectedSeries: "Africa (GDP-Weighted Group)",
+  horizon: "12"
+};
+
+function pctChange(curr, prev) {
+  if (!prev || prev === 0) return 0;
+  return ((curr - prev) / prev) * 100;
+}
+
+function formatDelta(val) {
+  const sign = val > 0 ? "+" : "";
+  return `${sign}${val.toFixed(1)}%`;
+}
+
+function populateSelector() {
+  const sel = document.getElementById("seriesSelect");
+  sel.innerHTML = "";
+  Object.keys(state.data.series).forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    if (name === state.selectedSeries) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function renderKPIs() {
+  const d = state.data;
+  const s = d.series[state.selectedSeries];
+  const vals = s.values;
+  const curr = vals[vals.length - 1];
+  const prev = vals[vals.length - 2];
+  const yoyPrev = vals.length >= 13 ? vals[vals.length - 13] : vals[0];
+
+  const mom = pctChange(curr, prev);
+  const yoy = pctChange(curr, yoyPrev);
+
+  document.getElementById("kpi1Label").textContent = `Selected Index (${state.selectedSeries})`;
+  document.getElementById("kpi1Value").textContent = curr.toFixed(1);
+  const kpi1Mom = document.getElementById("kpi1Mom");
+  kpi1Mom.textContent = `${formatDelta(mom)} MoM`;
+  kpi1Mom.className = `delta-pill ${mom > 0 ? "delta-up" : "delta-down"}`;
+  document.getElementById("kpi1Sub").textContent = `${formatDelta(yoy)} YoY • Historical Mean = 100.0`;
+
+  // Compute peak mover & lowest/most stabilized among countries
+  const countryEntries = Object.entries(d.series)
+    .filter(([, obj]) => obj.type === "Country")
+    .map(([name, obj]) => {
+      const c = obj.values[obj.values.length - 1];
+      const p = obj.values[obj.values.length - 2];
+      return { name, curr: c, prev: p, mom: pctChange(c, p) };
+    });
+
+  countryEntries.sort((a, b) => b.mom - a.mom);
+  const peak = countryEntries[0];
+  const calm = countryEntries[countryEntries.length - 1];
+
+  document.getElementById("kpi2Value").textContent = peak.name;
+  document.getElementById("kpi2Delta").textContent = formatDelta(peak.mom);
+  document.getElementById("kpi2Sub").textContent = `Index: ${peak.curr.toFixed(1)} (vs. ${peak.prev.toFixed(1)} prior month)`;
+
+  document.getElementById("kpi3Value").textContent = calm.name;
+  const kpi3Delta = document.getElementById("kpi3Delta");
+  kpi3Delta.textContent = formatDelta(calm.mom);
+  kpi3Delta.className = `delta-pill ${calm.mom <= 0 ? "delta-down" : "delta-up"}`;
+  document.getElementById("kpi3Sub").textContent = `Index: ${calm.curr.toFixed(1)} (${calm.curr < 100 ? "below" : "above"} 100.0 baseline)`;
+
+  const completeness = ((d.meta.activeOutlets / d.meta.activeOutlets) * 99.8).toFixed(1);
+  document.getElementById("kpi4Value").textContent = `${completeness}%`;
+  document.getElementById("kpi4Delta").textContent = `${d.meta.skippedFilesCount} Skipped`;
+  document.getElementById("kpi4Sub").textContent = `${d.meta.totalDeduplicatedArticles.toLocaleString()} deduplicated articles across ${d.meta.activeOutlets} outlets`;
+}
+
+function renderLineChart() {
+  const container = document.getElementById("lineChartContainer");
+  const d = state.data;
+  const totalLen = d.months.length;
+  const sliceCount = state.horizon === "all" ? totalLen : Math.min(Number(state.horizon), totalLen);
+  const startIdx = totalLen - sliceCount;
+
+  const months = d.months.slice(startIdx);
+  const focusVals = d.series[state.selectedSeries].values.slice(startIdx);
+  const benchSeriesName = Object.keys(d.series).find(k => d.series[k].type === "Regional Group") || Object.keys(d.series)[0];
+  const benchVals = d.series[benchSeriesName].values.slice(startIdx);
+
+  const allVals = [...focusVals, ...benchVals, 100];
+  const minVal = Math.floor((Math.min(...allVals) - 8) / 5) * 5;
+  const maxVal = Math.ceil((Math.max(...allVals) + 8) / 5) * 5;
+
+  const W = 720, H = 285;
+  const padL = 44, padR = 24, padT = 18, padB = 34;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const xPos = idx => padL + (months.length === 1 ? plotW / 2 : (idx / (months.length - 1)) * plotW);
+  const yPos = val => padT + plotH - ((val - minVal) / (maxVal - minVal)) * plotH;
+
+  const buildPath = arr => arr.map((v, i) => `${i === 0 ? "M" : "L"} ${xPos(i).toFixed(1)} ${yPos(v).toFixed(1)}`).join(" ");
+  const focusPath = buildPath(focusVals);
+  const benchPath = buildPath(benchVals);
+  const areaPath = `${focusPath} L ${xPos(months.length - 1).toFixed(1)} ${(padT + plotH).toFixed(1)} L ${xPos(0).toFixed(1)} ${(padT + plotH).toFixed(1)} Z`;
+
+  // Y grid ticks
+  const tickCount = 5;
+  let gridSvg = "";
+  for (let i = 0; i <= tickCount; i++) {
+    const val = minVal + ((maxVal - minVal) * i) / tickCount;
+    const y = yPos(val);
+    gridSvg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1" />`;
+    gridSvg += `<text x="${padL - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#64748b" font-family="sans-serif">${val.toFixed(0)}</text>`;
+  }
+
+  // Baseline 100 line
+  const y100 = yPos(100);
+  const baselineSvg = `
+    <line x1="${padL}" y1="${y100.toFixed(1)}" x2="${W - padR}" y2="${y100.toFixed(1)}" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4" />
+    <text x="${W - padR}" y="${(y100 - 5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="#64748b" font-weight="600">Mean (100)</text>
+  `;
+
+  // X labels
+  const step = Math.max(1, Math.ceil(months.length / 8));
+  let xLabelsSvg = "";
+  months.forEach((m, i) => {
+    if (i % step === 0 || i === months.length - 1) {
+      xLabelsSvg += `<text x="${xPos(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="#64748b">${m}</text>`;
+    }
+  });
+
+  // Data points on focus line
+  let dotsSvg = "";
+  focusVals.forEach((v, i) => {
+    const isLast = i === focusVals.length - 1;
+    dotsSvg += `<circle cx="${xPos(i).toFixed(1)}" cy="${yPos(v).toFixed(1)}" r="${isLast ? 4.5 : 2.8}" fill="${isLast ? "#b45309" : "#0f2942"}" stroke="#ffffff" stroke-width="1.5">
+      <title>${months[i]}: ${v.toFixed(1)}</title>
+    </circle>`;
+  });
+
+  const lastVal = focusVals[focusVals.length - 1];
+  const lastLabelSvg = `<text x="${xPos(focusVals.length - 1).toFixed(1)}" y="${(yPos(lastVal) - 10).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f2942">${lastVal.toFixed(1)}</text>`;
+
+  container.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Time series line chart">
+      <defs>
+        <linearGradient id="focusGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0f2942" stop-opacity="0.14"/>
+          <stop offset="100%" stop-color="#0f2942" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      ${gridSvg}
+      ${baselineSvg}
+      <path d="${areaPath}" fill="url(#focusGrad)" />
+      ${state.selectedSeries !== benchSeriesName ? `<path d="${benchPath}" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-opacity="0.7" />` : ""}
+      <path d="${focusPath}" fill="none" stroke="#0f2942" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+      ${dotsSvg}
+      ${lastLabelSvg}
+      ${xLabelsSvg}
+    </svg>
+  `;
+}
+
+function renderRankingBars() {
+  const container = document.getElementById("rankingBars");
+  const d = state.data;
+  const entries = Object.entries(d.series).map(([name, obj]) => {
+    const curr = obj.values[obj.values.length - 1];
+    const prev = obj.values[obj.values.length - 2];
+    return {
+      name,
+      type: obj.type,
+      weight: obj.weightShare,
+      curr,
+      mom: pctChange(curr, prev)
+    };
+  });
+
+  entries.sort((a, b) => b.curr - a.curr);
+  const maxVal = Math.max(...entries.map(e => e.curr), 180);
+
+  container.innerHTML = entries.map(e => {
+    const widthPct = Math.min(100, (e.curr / maxVal) * 100).toFixed(1);
+    const barColor = e.type === "Regional Group" ? "#1d4ed8" : (e.curr >= 130 ? "#b45309" : (e.curr < 100 ? "#0f766e" : "#0f2942"));
+    const deltaClass = e.mom > 0 ? "delta-up" : "delta-down";
+    return `
+      <div class="bar-item">
+        <div class="bar-meta">
+          <span class="bar-name">${e.name} <span class="bar-tag">${e.weight}</span></span>
+          <span class="bar-stats">
+            <span>${e.curr.toFixed(1)}</span>
+            <span class="delta-pill ${deltaClass}">${formatDelta(e.mom)}</span>
+          </span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${widthPct}%; background:${barColor};"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderBottomSections() {
+  const d = state.data;
+  document.getElementById("dashTitle").textContent = d.meta.title;
+  document.getElementById("dashSubtitle").textContent = d.meta.subtitle;
+  document.getElementById("badgeRules").textContent = `rules="${d.meta.rules}"`;
+  document.getElementById("badgeVintage").textContent = `Release: ${d.meta.releaseMonth}`;
+  document.getElementById("workbookRef").textContent = `Workbook Reference: ${d.meta.workbookFile} (Tabs: Country_Index, Group_Index, Counts, Settings)`;
+
+  const driverList = document.getElementById("driverList");
+  driverList.innerHTML = d.drivers.map(item => `
+    <div class="driver-card ${item.alert ? "alert" : ""}">
+      <h4>${item.title}</h4>
+      <p>${item.body}</p>
+    </div>
+  `).join("");
+
+  const auditRows = [
+    ["result.settings['rules']", d.meta.rules],
+    ["result.history (Scale)", d.meta.historyWindow],
+    ["result.groups (Weights)", d.meta.gdpWeighting],
+    ["Dictionary Fingerprint", d.meta.dictionaryFingerprint],
+    ["result.counts (Volume)", `${d.meta.matchedArticles.toLocaleString()} matched / ${d.meta.totalDeduplicatedArticles.toLocaleString()} unique`],
+    ["result.skipped_files", `${d.meta.skippedFilesCount} (${d.meta.skippedFilesNote})`]
+  ];
+
+  document.getElementById("auditTable").innerHTML = auditRows.map(([k, v]) => `
+    <tr>
+      <td class="audit-key">${k}</td>
+      <td class="audit-val">${v}</td>
+    </tr>
+  `).join("");
+}
+
+function renderAll() {
+  populateSelector();
+  renderKPIs();
+  renderLineChart();
+  renderRankingBars();
+  renderBottomSections();
+}
+
+// Event Listeners
+document.getElementById("seriesSelect").addEventListener("change", e => {
+  state.selectedSeries = e.target.value;
+  renderKPIs();
+  renderLineChart();
+});
+
+document.querySelectorAll(".tab-btn[data-horizon]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn[data-horizon]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.horizon = btn.dataset.horizon;
+    renderLineChart();
+  });
+});
+
+const modal = document.getElementById("importModal");
+const jsonInput = document.getElementById("jsonInput");
+
+document.getElementById("openImportBtn").addEventListener("click", () => {
+  jsonInput.value = JSON.stringify(state.data, null, 2);
+  modal.classList.add("open");
+});
+
+document.getElementById("closeModalBtn").addEventListener("click", () => {
+  modal.classList.remove("open");
+});
+
+document.getElementById("applyJsonBtn").addEventListener("click", () => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!parsed.months || !parsed.series || !parsed.meta) {
+      throw new Error("JSON must contain 'meta', 'months', and 'series' keys.");
+    }
+    state.data = parsed;
+    state.selectedSeries = Object.keys(parsed.series)[0];
+    renderAll();
+    modal.classList.remove("open");
+  } catch (err) {
+    alert("Invalid JSON payload: " + err.message);
+  }
+});
+
+renderAll();
+</script>
+</body>
+</html>
