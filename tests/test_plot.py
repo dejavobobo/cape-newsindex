@@ -1,12 +1,12 @@
 """plot: one-call charting, matplotlib/plotly/seaborn backends."""
 
-import matplotlib
+import pytest
 
+matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import pytest
 
 import CAPEnewsindex as ni
 

@@ -140,13 +140,14 @@ def dedupe(
     if articles.empty:
         return articles.copy()
     rules = _rules.check(rules)
-    missing_group_cols = [col for col in group_cols if col not in articles.columns]
+    working = articles.copy()
+    if "year_month" in group_cols and "year_month" not in working.columns and "date" in working.columns:
+        working["year_month"] = working["date"].astype(str).str.slice(0, 7)
+    missing_group_cols = [col for col in group_cols if col not in working.columns]
     if missing_group_cols:
         raise KeyError(f"missing grouping column(s): {missing_group_cols}")
-
     keys = [article_key(u, t, x, rules) for u, t, x in
-            zip(articles[url_col], articles[title_col], articles[text_col])]
-    working = articles.copy()
+            zip(working[url_col], working[title_col], working[text_col])]
     working["_dedup_key"] = [_hash_blob(k) if k else "" for k in keys]
     no_key = working["_dedup_key"] == ""
     kept = working[no_key] if rules == "cape" else working.iloc[0:0]
